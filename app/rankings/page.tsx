@@ -1,15 +1,57 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { RankingsList } from "@/components/rankings-list"
-import { getAllCharactersByRank } from "@/lib/mock-data"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Spinner } from "@/components/ui/spinner"
+import { db } from "@/lib/firebase"
+import { collection, getDocs, orderBy, query, limit } from "firebase/firestore"
+
+interface Character {
+  id: string
+  name: string
+  userId: string
+  imageUrl: string
+  rank: number
+  wins: number
+  losses: number
+  draws: number
+  winRate: number
+  totalBattles: number
+}
 
 export default function RankingsPage() {
-  const [characters] = useState(() => getAllCharactersByRank())
+  const [characters, setCharacters] = useState<Character[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchRankings = async () => {
+      try {
+        const q = query(collection(db, "characters"), orderBy("rank", "desc"), limit(100))
+        const snap = await getDocs(q)
+        const list = snap.docs.map((d) => d.data() as Character)
+        setCharacters(list)
+      } catch (error) {
+        console.error("Error fetching rankings:", error)
+        setCharacters([])
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchRankings()
+  }, [])
 
   const topCharacters = characters.slice(0, 10)
   const allCharacters = characters
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Spinner className="h-8 w-8" />
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-background">

@@ -1,81 +1,195 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useToast } from "@/hooks/use-toast"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Swords, Trophy, Zap, HelpCircle } from "lucide-react"
-import type { Character } from "@/lib/mock-data"
-import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { db, storage } from "@/lib/firebase"
+import { collection, doc, getDoc, getDocs, limit, orderBy, query, setDoc, updateDoc } from "firebase/firestore"
+import { getDownloadURL, ref } from "firebase/storage"
+
+interface CharacterProps {
+  id: string
+  name: string
+  userId: string
+  imageUrl: string
+  rank: number
+  wins: number
+  losses: number
+  draws: number
+  winRate: number
+  totalBattles: number
+}
 
 interface BattleArenaProps {
-  myCharacter: Character
+  myCharacter: CharacterProps
+  userId: string
 }
 
 type BattleState = "ready" | "matching" | "battling" | "finished"
 type BattleResult = "win" | "loss" | "draw"
 
-export function BattleArena({ myCharacter }: BattleArenaProps) {
+export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
   const router = useRouter()
+  const { toast } = useToast()
   const [battleState, setBattleState] = useState<BattleState>("ready")
   const [result, setResult] = useState<BattleResult | null>(null)
   const [reasoning, setReasoning] = useState<string>("")
   const [pointsChange, setPointsChange] = useState<number>(0)
-  const [opponent, setOpponent] = useState<Character | null>(null)
+  const [opponent, setOpponent] = useState<CharacterProps | null>(null)
+  const [newRank, setNewRank] = useState<number>(myCharacter.rank)
+  const [myImageSrc, setMyImageSrc] = useState<string>(myCharacter.imageUrl)
+
+  // Resolve my character image URL for rendering
+  useEffect(() => {
+    let mounted = true
+    const load = async () => {
+      try {
+        if (myCharacter.imageUrl.startsWith("data:")) {
+          if (mounted) setMyImageSrc(myCharacter.imageUrl)
+          return
+        }
+        if (myCharacter.imageUrl.startsWith("http://") || myCharacter.imageUrl.startsWith("https://")) {
+          if (mounted) setMyImageSrc(myCharacter.imageUrl)
+          return
+        }
+        const url = await getDownloadURL(ref(storage, myCharacter.imageUrl))
+        if (mounted) setMyImageSrc(url)
+      } catch (e) {
+        console.warn("Failed to load my character image URL", e)
+        if (mounted) setMyImageSrc("")
+      }
+    }
+    load()
+    return () => {
+      mounted = false
+    }
+  }, [myCharacter.imageUrl])
 
   const startBattle = async () => {
     setBattleState("matching")
 
     try {
-      const matchResponse = await fetch("/api/battle/match", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: myCharacter.userId }),
-      })
+      await new Promise((resolve) => setTimeout(resolve, 700))
 
-      const { opponent: matchedOpponent } = await matchResponse.json()
-      setOpponent(matchedOpponent)
+      // 1) Pick opponent client-side (top 50 by rank, then filter out my characters)
+      const q = query(collection(db, "characters"), orderBy("rank", "desc"), limit(50))
+      const snap = await getDocs(q)
+      const others = snap.docs
+        .map((d) => d.data() as CharacterProps)
+        .filter((c) => c.userId !== userId && c.id !== myCharacter.id)
 
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      if (others.length === 0) {
+        throw new Error("상대가 없습니다. 다른 사용자가 캐릭터를 만들 때까지 기다려주세요.")
+      }
+
+      const picked = others[Math.floor(Math.random() * others.length)]
+      setOpponent(picked)
 
       setBattleState("battling")
 
-      // Simulate AI battle analysis
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      // Resolve opponent image URL for AI (kept hidden in UI)
+      let opponentImageForAI: string | undefined = undefined
+      try {
+        if (picked.imageUrl?.startsWith("http://") || picked.imageUrl?.startsWith("https://")) {
+          opponentImageForAI = picked.imageUrl
+        } else if (picked.imageUrl) {
+          opponentImageForAI = await getDownloadURL(ref(storage, picked.imageUrl))
+        }
+      } catch (e) {
+        console.warn("Failed to resolve opponent image URL for AI", e)
+      }
 
+      // Prefer the resolved public URL for my character as well
+      const playerImageForAI = myImageSrc && (myImageSrc.startsWith("http://") || myImageSrc.startsWith("https://"))
+        ? myImageSrc
+        : undefined
+
+      // 2) Ask server for judgement only (send image URLs, ranks are ignored by server)
       const response = await fetch("/api/battle", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          myCharacter: {
-            id: myCharacter.id,
-            rank: myCharacter.rank,
-            imageData: myCharacter.imageData,
-          },
-          opponent: {
-            id: matchedOpponent.id,
-            rank: matchedOpponent.rank,
-            imageData: matchedOpponent.imageData,
-          },
+          player: { id: myCharacter.id, imageUrl: playerImageForAI },
+          opponent: { id: picked.id, imageUrl: opponentImageForAI },
         }),
       })
 
+      if (!response.ok) throw new Error("Battle failed")
       const data = await response.json()
-      setResult(data.result)
+
+      const battleResult = data.result as BattleResult
+      const delta = Number(data.pointsChange) || 0
+
+      // 3) Update both characters in Firestore
+  const playerRef = doc(db, "characters", myCharacter.id)
+
+      const playerSnap = await getDoc(playerRef)
+  const oppSnap = await getDoc(doc(db, "characters", picked.id))
+  if (!playerSnap.exists() || !oppSnap.exists()) throw new Error("캐릭터 문서를 찾을 수 없습니다")
+
+      const player = playerSnap.data() as CharacterProps
+      const opp = oppSnap.data() as CharacterProps
+
+      const playerNewRank = Math.max(1, player.rank + delta)
+      const oppNewRank = Math.max(1, opp.rank - delta)
+
+      const newPlayerStats = {
+        rank: playerNewRank,
+        wins: player.wins + (battleResult === "win" ? 1 : 0),
+        losses: player.losses + (battleResult === "loss" ? 1 : 0),
+        draws: player.draws + (battleResult === "draw" ? 1 : 0),
+        totalBattles: player.totalBattles + 1,
+        winRate:
+          ((player.wins + (battleResult === "win" ? 1 : 0)) / (player.totalBattles + 1)) * 100,
+        updatedAt: new Date(),
+      }
+      const newOppStats = {
+        rank: oppNewRank,
+        wins: opp.wins + (battleResult === "loss" ? 1 : 0),
+        losses: opp.losses + (battleResult === "win" ? 1 : 0),
+        draws: opp.draws + (battleResult === "draw" ? 1 : 0),
+        totalBattles: opp.totalBattles + 1,
+        winRate: ((opp.wins + (battleResult === "loss" ? 1 : 0)) / (opp.totalBattles + 1)) * 100,
+        updatedAt: new Date(),
+      }
+
+  // Update only my character on client (opponent update requires server/admin)
+  await updateDoc(playerRef, newPlayerStats)
+
+      // 4) Save battle record
+      const battleId = `battle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      await setDoc(doc(db, "battles", battleId), {
+        id: battleId,
+        characterId: myCharacter.id,
+        opponentId: picked.id,
+        result: battleResult,
+        reasoning: data.reasoning,
+        pointsChange: delta,
+        characterRankBefore: player.rank,
+        characterRankAfter: playerNewRank,
+        opponentRankBefore: opp.rank,
+        opponentRankAfter: oppNewRank,
+        createdAt: new Date(),
+      })
+
+      setResult(battleResult)
       setReasoning(data.reasoning)
-      setPointsChange(data.pointsChange)
+      setPointsChange(delta)
+      setNewRank(playerNewRank)
+  setOpponent({ ...picked, rank: oppNewRank, wins: newOppStats.wins, losses: newOppStats.losses, draws: newOppStats.draws, totalBattles: newOppStats.totalBattles, winRate: newOppStats.winRate })
       setBattleState("finished")
     } catch (error) {
-      console.error("Battle error:", error)
-      // Fallback to random result if API fails
-      const outcomes: BattleResult[] = ["win", "loss", "draw"]
-      const randomResult = outcomes[Math.floor(Math.random() * outcomes.length)]
-      setResult(randomResult)
-      setReasoning("배틀이 치열하게 진행되었습니다!")
-      setPointsChange(randomResult === "win" ? 25 : randomResult === "loss" ? -15 : 0)
-      setBattleState("finished")
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Battle failed",
+        variant: "destructive",
+      })
+      setBattleState("ready")
     }
   }
 
@@ -107,12 +221,7 @@ export function BattleArena({ myCharacter }: BattleArenaProps) {
             </CardHeader>
             <CardContent>
               <div className="aspect-square relative bg-muted rounded-lg overflow-hidden">
-                <Image
-                  src={myCharacter.imageData || "/placeholder.svg"}
-                  alt="My Character"
-                  fill
-                  className="object-contain"
-                />
+                <img src={myImageSrc || "/placeholder.svg"} alt="My Character" className="w-full h-full object-contain" />
               </div>
               <div className="mt-4 text-center text-sm">
                 <div className="text-muted-foreground">전적</div>
@@ -151,22 +260,21 @@ export function BattleArena({ myCharacter }: BattleArenaProps) {
               <CardTitle className="text-center">내 캐릭터</CardTitle>
               <Badge variant="secondary" className="mx-auto gap-1">
                 <Trophy className="h-3 w-3" />
-                랭크 {myCharacter.rank}
+                랭크 {newRank}
               </Badge>
             </CardHeader>
             <CardContent>
               <div className="aspect-square relative bg-muted rounded-lg overflow-hidden">
-                <Image
-                  src={myCharacter.imageData || "/placeholder.svg"}
-                  alt="My Character"
-                  fill
-                  className="object-contain"
-                />
+                <img src={myImageSrc || "/placeholder.svg"} alt="My Character" className="w-full h-full object-contain" />
               </div>
               <div className="mt-4 text-center text-sm">
                 <div className="text-muted-foreground">전적</div>
                 <div className="font-semibold">
-                  {myCharacter.wins}승 {myCharacter.losses}패 {myCharacter.draws}무
+                  {result === "win"
+                    ? `${myCharacter.wins + 1}승 ${myCharacter.losses}패 ${myCharacter.draws}무`
+                    : result === "loss"
+                      ? `${myCharacter.wins}승 ${myCharacter.losses + 1}패 ${myCharacter.draws}무`
+                      : `${myCharacter.wins}승 ${myCharacter.losses}패 ${myCharacter.draws + 1}무`}
                 </div>
               </div>
             </CardContent>

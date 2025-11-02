@@ -1,13 +1,17 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/lib/auth-context"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Swords, Trophy, Trash2 } from "lucide-react"
-import type { Character } from "@/lib/mock-data"
 import Image from "next/image"
 import Link from "next/link"
+import { db, storage } from "@/lib/firebase"
+import { doc, deleteDoc, getDoc, updateDoc } from "firebase/firestore"
+import { ref, deleteObject, getDownloadURL } from "firebase/storage"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,39 +24,116 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
+interface CharacterProps {
+  id: string
+  name: string
+  userId: string
+  imageUrl: string
+  rank: number
+  wins: number
+  losses: number
+  draws: number
+  winRate: number
+  totalBattles: number
+}
+
 interface CharacterCardProps {
-  character: Character
+  character: CharacterProps
   onDelete?: (id: string) => void
 }
 
 export function CharacterCard({ character, onDelete }: CharacterCardProps) {
   const [isDeleting, setIsDeleting] = useState(false)
-  const totalBattles = character.wins + character.losses + character.draws
-  const winRate = totalBattles > 0 ? ((character.wins / totalBattles) * 100).toFixed(1) : "0.0"
+  const [imageSrc, setImageSrc] = useState<string>(character.imageUrl)
+  const { user } = useAuth()
+  const { toast } = useToast()
 
-  const handleDelete = () => {
+  const winRate = character.totalBattles > 0 ? character.winRate.toFixed(1) : "0.0"
+
+  const handleDelete = async () => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "Not authenticated",
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsDeleting(true)
-    // In real app, delete from Firebase here
-    setTimeout(() => {
+
+    try {
+      // Delete from Storage
+      const storageRef = ref(storage, `characters/${user.id}/${character.id}.png`)
+      await deleteObject(storageRef)
+
+      // Delete character doc
+      await deleteDoc(doc(db, "characters", character.id))
+
+      // Decrement user character count if user doc exists
+      const userDocRef = doc(db, "users", user.id)
+      const userSnap = await getDoc(userDocRef)
+      if (userSnap.exists()) {
+        const count = userSnap.data()?.characterCount || 0
+        await updateDoc(userDocRef, { characterCount: Math.max(0, count - 1) })
+      }
+
+      toast({
+        title: "Success",
+        description: "Character deleted successfully",
+      })
+
       onDelete?.(character.id)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete character",
+        variant: "destructive",
+      })
+    } finally {
       setIsDeleting(false)
-    }, 500)
+    }
   }
+
+  // Resolve image URL for rendering (supports data URL, http(s) URL, or storage path)
+  useEffect(() => {
+    let mounted = true
+    const loadUrl = async () => {
+      try {
+        if (character.imageUrl.startsWith("data:")) {
+          setImageSrc(character.imageUrl)
+          return
+        }
+        if (character.imageUrl.startsWith("http://") || character.imageUrl.startsWith("https://")) {
+          if (mounted) setImageSrc(character.imageUrl)
+          return
+        }
+        const url = await getDownloadURL(ref(storage, character.imageUrl))
+        if (mounted) setImageSrc(url)
+      } catch (e) {
+        console.warn("Failed to resolve image URL", e)
+      }
+    }
+    loadUrl()
+    return () => {
+      mounted = false
+    }
+  }, [character.imageUrl])
 
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <Badge variant="secondary" className="gap-1">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="font-semibold truncate flex-1">{character.name}</h3>
+          <Badge variant="secondary" className="gap-1 whitespace-nowrap">
             <Trophy className="h-3 w-3" />
-            랭크 {character.rank}
+            {character.rank}
           </Badge>
-          <span className="text-xs text-muted-foreground">{character.createdAt.toLocaleDateString("ko-KR")}</span>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="aspect-square relative bg-muted rounded-lg overflow-hidden">
-          <Image src={character.imageData || "/placeholder.svg"} alt="Character" fill className="object-contain" />
+          <img src={imageSrc || "/placeholder.svg"} alt="Character" className="w-full h-full object-contain" />
         </div>
         <div className="grid grid-cols-3 gap-2 text-center text-sm">
           <div>

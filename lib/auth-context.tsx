@@ -1,64 +1,148 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import {
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged,
+  User as FirebaseUser,
+  GoogleAuthProvider,
+  signInAnonymously,
+} from "firebase/auth"
+import { auth, db } from "@/lib/firebase"
+import { doc, setDoc, getDoc } from "firebase/firestore"
 
 interface User {
   id: string
   email: string
-  name: string
+  name?: string
+  isAnonymous?: boolean
 }
 
 interface AuthContextType {
   user: User | null
-  login: (email: string, password: string) => Promise<boolean>
-  logout: () => void
+  login: () => Promise<boolean>
+  loginAnonymously: () => Promise<boolean>
+  logout: () => Promise<void>
   isLoading: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
-
-// Mock users for login
-const MOCK_USERS = [
-  { id: "user-1", email: "player1@example.com", password: "password1", name: "플레이어1" },
-  { id: "user-2", email: "player2@example.com", password: "password2", name: "플레이어2" },
-  { id: "user-3", email: "player3@example.com", password: "password3", name: "플레이어3" },
-]
+const googleProvider = new GoogleAuthProvider()
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
+  // Monitor auth state changes
   useEffect(() => {
-    // Check if user is logged in from localStorage
-    const savedUser = localStorage.getItem("currentUser")
-    if (savedUser) {
-      setUser(JSON.parse(savedUser))
-    }
-    setIsLoading(false)
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+      if (firebaseUser) {
+        // Check if user document exists, if not create it
+        const userDocRef = doc(db, "users", firebaseUser.uid)
+        const userDocSnap = await getDoc(userDocRef)
+
+        if (!userDocSnap.exists()) {
+          // Create user document if it doesn't exist
+          await setDoc(userDocRef, {
+            id: firebaseUser.uid,
+            email: firebaseUser.email || "",
+            characterCount: 0,
+            createdAt: new Date(),
+          })
+        }
+
+        setUser({
+          id: firebaseUser.uid,
+          email: firebaseUser.email || "",
+          name: firebaseUser.displayName || undefined,
+          isAnonymous: firebaseUser.isAnonymous,
+        })
+      } else {
+        setUser(null)
+      }
+      setIsLoading(false)
+    })
+
+    return () => unsubscribe()
   }, [])
 
-  const login = async (email: string, password: string): Promise<boolean> => {
-    // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 500))
+  const login = async (): Promise<boolean> => {
+    try {
+      const result = await signInWithPopup(auth, googleProvider)
+      const userCredential = result.user
 
-    const foundUser = MOCK_USERS.find((u) => u.email === email && u.password === password)
+      // Create user document if it doesn't exist
+      const userDocRef = doc(db, "users", userCredential.uid)
+      const userDocSnap = await getDoc(userDocRef)
 
-    if (foundUser) {
-      const user = { id: foundUser.id, email: foundUser.email, name: foundUser.name }
-      setUser(user)
-      localStorage.setItem("currentUser", JSON.stringify(user))
+      if (!userDocSnap.exists()) {
+        await setDoc(userDocRef, {
+          id: userCredential.uid,
+          email: userCredential.email || "",
+          characterCount: 0,
+          createdAt: new Date(),
+        })
+      }
+
+      setUser({
+        id: userCredential.uid,
+        email: userCredential.email || "",
+        name: userCredential.displayName || undefined,
+        isAnonymous: false,
+      })
       return true
+    } catch (error) {
+      console.error("Login error:", error)
+      return false
     }
-
-    return false
   }
 
-  const logout = () => {
-    setUser(null)
-    localStorage.removeItem("currentUser")
+  const loginAnonymously = async (): Promise<boolean> => {
+    try {
+      const result = await signInAnonymously(auth)
+      const userCredential = result.user
+
+      // Create user document if it doesn't exist
+      const userDocRef = doc(db, "users", userCredential.uid)
+      const userDocSnap = await getDoc(userDocRef)
+
+      if (!userDocSnap.exists()) {
+        await setDoc(userDocRef, {
+          id: userCredential.uid,
+          email: `anonymous_${userCredential.uid}`,
+          characterCount: 0,
+          createdAt: new Date(),
+          isAnonymous: true,
+        })
+      }
+
+      setUser({
+        id: userCredential.uid,
+        email: `Anonymous User`,
+        isAnonymous: true,
+      })
+      return true
+    } catch (error) {
+      console.error("Anonymous login error:", error)
+      return false
+    }
   }
 
-  return <AuthContext.Provider value={{ user, login, logout, isLoading }}>{children}</AuthContext.Provider>
+  const logout = async (): Promise<void> => {
+    try {
+      await signOut(auth)
+      setUser(null)
+    } catch (error) {
+      console.error("Logout error:", error)
+    }
+  }
+
+  return (
+    <AuthContext.Provider value={{ user, login, loginAnonymously, logout, isLoading }}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuth() {
@@ -68,3 +152,4 @@ export function useAuth() {
   }
   return context
 }
+

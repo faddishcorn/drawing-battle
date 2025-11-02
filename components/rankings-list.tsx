@@ -3,16 +3,30 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Trophy, Medal, Award } from "lucide-react"
-import { type Character, currentUserId } from "@/lib/mock-data"
-import Image from "next/image"
+import { useAuth } from "@/lib/auth-context"
 import { cn } from "@/lib/utils"
 
+interface CharacterProps {
+  id: string
+  name: string
+  userId: string
+  imageUrl: string
+  rank: number
+  wins: number
+  losses: number
+  draws: number
+  winRate: number
+  totalBattles: number
+}
+
 interface RankingsListProps {
-  characters: Character[]
+  characters: CharacterProps[]
   showTopBadges?: boolean
 }
 
 export function RankingsList({ characters, showTopBadges = false }: RankingsListProps) {
+  const { user } = useAuth()
+
   const getRankIcon = (index: number) => {
     if (!showTopBadges) return null
 
@@ -46,9 +60,8 @@ export function RankingsList({ characters, showTopBadges = false }: RankingsList
   return (
     <div className="space-y-3">
       {characters.map((character, index) => {
-        const isMyCharacter = character.userId === currentUserId
-        const totalBattles = character.wins + character.losses + character.draws
-        const winRate = totalBattles > 0 ? ((character.wins / totalBattles) * 100).toFixed(1) : "0.0"
+        const isMyCharacter = character.userId === user?.id
+        const winRate = character.totalBattles > 0 ? character.winRate.toFixed(1) : "0.0"
 
         return (
           <Card
@@ -66,18 +79,9 @@ export function RankingsList({ characters, showTopBadges = false }: RankingsList
                   {showTopBadges && index < 3 ? getRankIcon(index) : <span>#{index + 1}</span>}
                 </div>
 
-                {/* Character Image */}
-                <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-muted flex-shrink-0">
-                  <Image
-                    src={character.imageData || "/placeholder.svg"}
-                    alt="Character"
-                    fill
-                    className="object-contain"
-                  />
-                </div>
-
                 {/* Character Info */}
                 <div className="flex-1 min-w-0">
+                  <div className="text-base font-semibold truncate">{character.name}</div>
                   <div className="flex items-center gap-2 mb-1">
                     <Badge variant="secondary" className="gap-1">
                       <Trophy className="h-3 w-3" />

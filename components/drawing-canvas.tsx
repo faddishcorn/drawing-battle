@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 
 interface DrawingCanvasProps {
   onSave: (imageData: string) => void
+  isDisabled?: boolean
 }
 
 const COLORS = [
@@ -20,7 +21,7 @@ const COLORS = [
   { name: 'Pink', value: '#ec4899' },
 ]
 
-export function DrawingCanvas({ onSave }: DrawingCanvasProps) {
+export function DrawingCanvas({ onSave, isDisabled = false }: DrawingCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [isDrawing, setIsDrawing] = useState(false)
   const [currentColor, setCurrentColor] = useState('#000000')
@@ -174,9 +175,9 @@ export function DrawingCanvas({ onSave }: DrawingCanvasProps) {
       </div>
 
       <div className="flex justify-center">
-        <Button onClick={handleSave} size="lg" className="gap-2">
+        <Button onClick={handleSave} size="lg" className="gap-2" disabled={isDisabled}>
           <Save className="h-5 w-5" />
-          캐릭터 저장
+          {isDisabled ? "저장 중..." : "캐릭터 저장"}
         </Button>
       </div>
     </div>
