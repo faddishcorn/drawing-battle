@@ -130,8 +130,8 @@ export default function DrawPage() {
       await updateDoc(userDocRef, { characterCount: currentCount + 1 })
 
       toast({
-        title: "Character Saved!",
-        description: `${characterName} has been created successfully.`,
+        title: "캐릭터 저장 완료!",
+        description: `${characterName} 그림이 저장되었습니다.`,
       })
 
       // Reset form
@@ -166,15 +166,15 @@ export default function DrawPage() {
       <div className="max-w-4xl mx-auto space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Create Your Character</CardTitle>
-            <CardDescription>Draw your character and give it a name. You can have up to 3 characters.</CardDescription>
+            <CardTitle>당신의 캐릭터를 그려보세요</CardTitle>
+            <CardDescription>캐릭터를 그리고 이름을 부여하세요. 그림은 3개까지 그릴 수 있습니다.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="character-name">Character Name</Label>
+              <Label htmlFor="character-name">캐릭터 이름</Label>
               <Input
                 id="character-name"
-                placeholder="Enter character name..."
+                placeholder="캐릭터 이름을 입력하세요..."
                 value={characterName}
                 onChange={(e) => setCharacterName(e.target.value)}
                 maxLength={30}
