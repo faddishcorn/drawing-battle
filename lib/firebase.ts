@@ -1,5 +1,7 @@
-import { initializeApp } from 'firebase/app'
-import { getAuth, Auth } from 'firebase/auth'
+import { initializeApp, getApps, getApp } from 'firebase/app'
+// Avoid initializing Firebase Auth on the server to prevent build-time errors
+// Import type only to keep types in client code
+import type { Auth } from 'firebase/auth'
 import { getFirestore, Firestore } from 'firebase/firestore'
 import { getStorage, FirebaseStorage } from 'firebase/storage'
 
@@ -12,11 +14,20 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 }
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig)
+// Initialize Firebase (singleton)
+const app = getApps().length ? getApp() : initializeApp(firebaseConfig)
 
-// Initialize Firebase Authentication and get a reference to the service
-export const auth: Auth = getAuth(app)
+// Initialize Firebase Authentication only in the browser
+export const auth = ((): Auth => {
+  if (typeof window !== 'undefined') {
+    // Dynamic import to avoid bundling auth on the server
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { getAuth } = require('firebase/auth') as typeof import('firebase/auth')
+    return getAuth(app)
+  }
+  // Server-side placeholder; should never be used on the server
+  return undefined as unknown as Auth
+})()
 
 // Initialize Cloud Firestore and get a reference to the service
 export const db: Firestore = getFirestore(app)

@@ -2,9 +2,11 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
+import Script from "next/script"
 import { Navigation } from "@/components/navigation"
 import { AuthProvider } from "@/lib/auth-context"
 import { Toaster } from "@/components/ui/toaster"
+import { GAListener } from "@/components/ga-listener"
 import "./globals.css"
 
 const _geist = Geist({ subsets: ["latin"] })
@@ -33,14 +35,32 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const GA_ID = process.env.NEXT_PUBLIC_GA_ID
   return (
   <html lang="ko">
       <body className={`font-sans antialiased`}>
+        {GA_ID ? (
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
+              strategy="afterInteractive"
+            />
+            <Script id="gtag-init" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${GA_ID}');
+              `}
+            </Script>
+          </>
+        ) : null}
         <AuthProvider>
           <Navigation />
           <main className="min-h-[calc(100vh-4rem)]">{children}</main>
           <Toaster />
         </AuthProvider>
+        {GA_ID ? <GAListener /> : null}
         <Analytics />
       </body>
     </html>
