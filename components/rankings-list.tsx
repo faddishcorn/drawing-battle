@@ -22,9 +22,10 @@ interface CharacterProps {
 interface RankingsListProps {
   characters: CharacterProps[]
   showTopBadges?: boolean
+  offset?: number
 }
 
-export function RankingsList({ characters, showTopBadges = false }: RankingsListProps) {
+export function RankingsList({ characters, showTopBadges = false, offset = 0 }: RankingsListProps) {
   const { user } = useAuth()
 
   const getRankIcon = (index: number) => {
@@ -62,13 +63,14 @@ export function RankingsList({ characters, showTopBadges = false }: RankingsList
       {characters.map((character, index) => {
         const isMyCharacter = character.userId === user?.id
         const winRate = character.totalBattles > 0 ? character.winRate.toFixed(1) : "0.0"
+        const displayIndex = index + offset
 
         return (
           <Card
             key={character.id}
             className={cn(
               "transition-all hover:shadow-md",
-              getRankColor(index),
+              getRankColor(displayIndex),
               isMyCharacter && "ring-2 ring-primary",
             )}
           >
@@ -76,7 +78,7 @@ export function RankingsList({ characters, showTopBadges = false }: RankingsList
               <div className="flex items-center gap-4">
                 {/* Rank Number */}
                 <div className="flex items-center justify-center w-12 h-12 rounded-full bg-muted font-bold text-lg">
-                  {showTopBadges && index < 3 ? getRankIcon(index) : <span>#{index + 1}</span>}
+                  {showTopBadges && displayIndex < 3 ? getRankIcon(displayIndex) : <span>#{displayIndex + 1}</span>}
                 </div>
 
                 {/* Character Info */}

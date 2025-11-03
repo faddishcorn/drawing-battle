@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { RankingsList } from "@/components/rankings-list"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Spinner } from "@/components/ui/spinner"
+import { Button } from "@/components/ui/button"
 import { db } from "@/lib/firebase"
 import { collection, getDocs, orderBy, query, limit } from "firebase/firestore"
 
@@ -23,6 +24,7 @@ interface Character {
 export default function RankingsPage() {
   const [characters, setCharacters] = useState<Character[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [page, setPage] = useState(1)
 
   useEffect(() => {
     const fetchRankings = async () => {
@@ -44,6 +46,12 @@ export default function RankingsPage() {
 
   const topCharacters = characters.slice(0, 10)
   const allCharacters = characters
+  const PAGE_SIZE = 25
+  const pageCount = Math.max(1, Math.ceil(allCharacters.length / PAGE_SIZE))
+  const currentPage = Math.min(page, pageCount)
+  const start = (currentPage - 1) * PAGE_SIZE
+  const end = start + PAGE_SIZE
+  const pagedAllCharacters = allCharacters.slice(start, end)
 
   if (isLoading) {
     return (
@@ -71,7 +79,28 @@ export default function RankingsPage() {
               <RankingsList characters={topCharacters} showTopBadges />
             </TabsContent>
             <TabsContent value="all" className="mt-6">
-              <RankingsList characters={allCharacters} />
+              <div className="space-y-4">
+                <RankingsList characters={pagedAllCharacters} offset={start} />
+                <div className="flex items-center justify-between">
+                  <Button
+                    variant="secondary"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage <= 1}
+                  >
+                    이전
+                  </Button>
+                  <div className="text-sm text-muted-foreground">
+                    {currentPage} / {pageCount} 페이지 · 총 {allCharacters.length}명
+                  </div>
+                  <Button
+                    variant="secondary"
+                    onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                    disabled={currentPage >= pageCount}
+                  >
+                    다음
+                  </Button>
+                </div>
+              </div>
             </TabsContent>
           </Tabs>
         </div>
