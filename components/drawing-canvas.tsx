@@ -44,13 +44,25 @@ export function DrawingCanvas({ onSave, isDisabled = false }: DrawingCanvasProps
     ctx.fillRect(0, 0, canvas.width, canvas.height)
   }, [])
 
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const getPos = (e: { clientX: number; clientY: number }) => {
+    const canvas = canvasRef.current
+    if (!canvas) return { x: 0, y: 0 }
+    const rect = canvas.getBoundingClientRect()
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    }
+  }
+
+  const startDrawing = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    e.preventDefault()
     const canvas = canvasRef.current
     if (!canvas) return
 
-    const rect = canvas.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
+    // Capture pointer to continue drawing when leaving the element
+    try { (e.currentTarget as HTMLCanvasElement).setPointerCapture?.(e.pointerId) } catch {}
+
+    const { x, y } = getPos(e)
 
     const ctx = canvas.getContext('2d')
     if (!ctx) return
@@ -60,15 +72,14 @@ export function DrawingCanvas({ onSave, isDisabled = false }: DrawingCanvasProps
     setIsDrawing(true)
   }
 
-  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const draw = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    e.preventDefault()
     if (!isDrawing) return
 
     const canvas = canvasRef.current
     if (!canvas) return
 
-    const rect = canvas.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
+    const { x, y } = getPos(e)
 
     const ctx = canvas.getContext('2d')
     if (!ctx) return
@@ -82,7 +93,8 @@ export function DrawingCanvas({ onSave, isDisabled = false }: DrawingCanvasProps
     ctx.stroke()
   }
 
-  const stopDrawing = () => {
+  const stopDrawing = (e?: React.PointerEvent<HTMLCanvasElement>) => {
+    if (e) e.preventDefault()
     setIsDrawing(false)
   }
 
@@ -166,11 +178,13 @@ export function DrawingCanvas({ onSave, isDisabled = false }: DrawingCanvasProps
       <div className="flex justify-center">
         <canvas
           ref={canvasRef}
-          className="border-2 border-border rounded-lg cursor-crosshair bg-white"
-          onMouseDown={startDrawing}
-          onMouseMove={draw}
-          onMouseUp={stopDrawing}
-          onMouseLeave={stopDrawing}
+          className="border-2 border-border rounded-lg cursor-crosshair bg-white touch-none"
+          style={{ touchAction: 'none' }}
+          onPointerDown={startDrawing}
+          onPointerMove={draw}
+          onPointerUp={stopDrawing}
+          onPointerLeave={stopDrawing}
+          onContextMenu={(e) => e.preventDefault()}
         />
       </div>
 

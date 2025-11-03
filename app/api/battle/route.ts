@@ -1,5 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
 
+// Soft in-memory cooldown guard per character ID (best-effort, per server instance)
+const lastBattleAtMap = new Map<string, number>()
+const COOLDOWN_MS = 15_000
+
 export async function POST(request: NextRequest) {
   try {
     const { player, opponent } = await request.json()
@@ -8,6 +12,16 @@ export async function POST(request: NextRequest) {
     if (!player?.id || !opponent?.id) {
       return NextResponse.json({ error: "Missing player/opponent info" }, { status: 400 })
     }
+
+    // Cooldown check (soft, per-instance)
+    const now = Date.now()
+    const key = String(player.id)
+    const last = lastBattleAtMap.get(key) ?? 0
+    if (now - last < COOLDOWN_MS) {
+      const remain = Math.ceil((COOLDOWN_MS - (now - last)) / 1000)
+      return NextResponse.json({ error: `쿨다운 중입니다. ${remain}초 후 재시도하세요.` }, { status: 429 })
+    }
+    lastBattleAtMap.set(key, now)
 
     // Helper: fetch image as base64 (optional)
     const fetchAsBase64 = async (url?: string): Promise<{ data: string; mime: string } | null> => {

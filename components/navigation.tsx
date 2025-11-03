@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Pencil, ImageIcon, Trophy, Swords, LogOut, User } from "lucide-react"
+import { ImageIcon, Trophy, Swords, LogOut, User } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 const navItems = [
-  { href: "/", label: "그리기", icon: Pencil },
   { href: "/gallery", label: "내 캐릭터", icon: ImageIcon },
   { href: "/rankings", label: "랭킹", icon: Trophy },
 ]

@@ -11,9 +11,21 @@ const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Battle Draw - Character Battle Game",
-  description: "Draw characters and battle them against others",
+  title: "배틀 드로잉 - 캐릭터 배틀 게임",
+  description: "직접 그린 캐릭터로 실시간 배틀을 즐겨보세요.",
   generator: "v0.app",
+  openGraph: {
+    title: "배틀 드로잉 - 캐릭터 배틀 게임",
+    description: "직접 그린 캐릭터로 실시간 배틀을 즐겨보세요.",
+    type: "website",
+    siteName: "배틀 드로잉",
+    locale: "ko_KR",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "배틀 드로잉 - 캐릭터 배틀 게임",
+    description: "직접 그린 캐릭터로 실시간 배틀을 즐겨보세요.",
+  },
 }
 
 export default function RootLayout({
@@ -22,7 +34,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+  <html lang="ko">
       <body className={`font-sans antialiased`}>
         <AuthProvider>
           <Navigation />

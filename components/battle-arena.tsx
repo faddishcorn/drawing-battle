@@ -9,7 +9,7 @@ import { Swords, Trophy, Zap, HelpCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { db, storage } from "@/lib/firebase"
-import { collection, doc, getDoc, getDocs, limit, orderBy, query, setDoc, updateDoc } from "firebase/firestore"
+import { collection, doc, getDoc, getDocs, limit, orderBy, query, setDoc, updateDoc, serverTimestamp, Timestamp } from "firebase/firestore"
 import { getDownloadURL, ref } from "firebase/storage"
 
 interface CharacterProps {
@@ -23,6 +23,7 @@ interface CharacterProps {
   draws: number
   winRate: number
   totalBattles: number
+  lastBattleAt?: Timestamp
 }
 
 interface BattleArenaProps {
@@ -43,6 +44,8 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
   const [opponent, setOpponent] = useState<CharacterProps | null>(null)
   const [newRank, setNewRank] = useState<number>(myCharacter.rank)
   const [myImageSrc, setMyImageSrc] = useState<string>(myCharacter.imageUrl)
+  const [cooldownMs, setCooldownMs] = useState<number>(0)
+  const COOLDOWN_MS = 15_000
 
   // Resolve my character image URL for rendering
   useEffect(() => {
@@ -70,7 +73,66 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
     }
   }, [myCharacter.imageUrl])
 
+  // Load lastBattleAt and start countdown if within cooldown
+  useEffect(() => {
+    let timer: any
+    let mounted = true
+    const loadCooldown = async () => {
+      try {
+        const refDoc = await getDoc(doc(db, "characters", myCharacter.id))
+        if (!mounted) return
+        const data = refDoc.data() as CharacterProps | undefined
+        const last = data?.lastBattleAt as Timestamp | undefined
+        if (last) {
+          const until = last.toMillis() + COOLDOWN_MS
+          const now = Date.now()
+          const remain = Math.max(0, until - now)
+          setCooldownMs(remain)
+          if (remain > 0) {
+            timer = setInterval(() => {
+              const left = Math.max(0, until - Date.now())
+              setCooldownMs(left)
+              if (left <= 0) {
+                clearInterval(timer)
+              }
+            }, 250)
+          }
+        } else {
+          setCooldownMs(0)
+        }
+      } catch {
+        // ignore
+      }
+    }
+    loadCooldown()
+    return () => {
+      mounted = false
+      if (timer) clearInterval(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myCharacter.id])
+
   const startBattle = async () => {
+    // Guard by cooldown before doing anything heavy
+    try {
+      const refDoc = await getDoc(doc(db, "characters", myCharacter.id))
+      const data = refDoc.data() as CharacterProps | undefined
+      const last = data?.lastBattleAt as Timestamp | undefined
+      if (last) {
+        const remain = last.toMillis() + COOLDOWN_MS - Date.now()
+        if (remain > 0) {
+          setCooldownMs(remain)
+          throw new Error(`쿨다운 중입니다. ${Math.ceil(remain / 1000)}초 후 다시 시도하세요.`)
+        }
+      }
+    } catch (e) {
+      if (e instanceof Error && e.message.startsWith("쿨다운 중")) {
+        toast({ title: "대기 시간", description: e.message, variant: "default" })
+        return
+      }
+      // if we fail to read, continue; fallback guard will be after result write
+    }
+
     setBattleState("matching")
 
     try {
@@ -146,7 +208,8 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
         totalBattles: player.totalBattles + 1,
         winRate:
           ((player.wins + (battleResult === "win" ? 1 : 0)) / (player.totalBattles + 1)) * 100,
-        updatedAt: new Date(),
+        updatedAt: serverTimestamp(),
+        lastBattleAt: serverTimestamp(),
       }
       const newOppStats = {
         rank: oppNewRank,
@@ -155,7 +218,7 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
         draws: opp.draws + (battleResult === "draw" ? 1 : 0),
         totalBattles: opp.totalBattles + 1,
         winRate: ((opp.wins + (battleResult === "loss" ? 1 : 0)) / (opp.totalBattles + 1)) * 100,
-        updatedAt: new Date(),
+        updatedAt: serverTimestamp(),
       }
 
   // Update only my character on client (opponent update requires server/admin)
@@ -182,6 +245,15 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
       setPointsChange(delta)
       setNewRank(playerNewRank)
   setOpponent({ ...picked, rank: oppNewRank, wins: newOppStats.wins, losses: newOppStats.losses, draws: newOppStats.draws, totalBattles: newOppStats.totalBattles, winRate: newOppStats.winRate })
+      // Start local cooldown timer right away
+      setCooldownMs(COOLDOWN_MS)
+      const start = Date.now()
+      const tick = setInterval(() => {
+        const left = Math.max(0, COOLDOWN_MS - (Date.now() - start))
+        setCooldownMs(left)
+        if (left <= 0) clearInterval(tick)
+      }, 250)
+
       setBattleState("finished")
     } catch (error) {
       toast({
@@ -233,9 +305,9 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
           </Card>
 
           <div className="flex justify-center">
-            <Button size="lg" onClick={startBattle} className="gap-2">
+            <Button size="lg" onClick={startBattle} className="gap-2" disabled={cooldownMs > 0 || battleState !== "ready"}>
               <Zap className="h-5 w-5" />
-              배틀 시작
+              {cooldownMs > 0 ? `쿨다운 ${Math.ceil(cooldownMs/1000)}초` : "배틀 시작"}
             </Button>
           </div>
         </div>
