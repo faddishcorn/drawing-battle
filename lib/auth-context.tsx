@@ -9,6 +9,7 @@ import {
   User as FirebaseUser,
   GoogleAuthProvider,
   signInAnonymously,
+  browserPopupRedirectResolver,
 } from "firebase/auth"
 import { auth, db } from "@/lib/firebase"
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore"
@@ -77,9 +78,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       // If the current session is anonymous, link Google to preserve the same UID
       if (auth.currentUser && auth.currentUser.isAnonymous) {
-        await linkWithPopup(auth.currentUser, googleProvider)
+        await linkWithPopup(auth.currentUser, googleProvider, browserPopupRedirectResolver)
       } else {
-        await signInWithPopup(auth, googleProvider)
+        await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver)
       }
       // onAuthStateChanged will handle the rest
       return true
