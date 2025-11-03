@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
@@ -13,8 +13,15 @@ import { Swords } from "lucide-react"
 export default function LoginPage() {
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const { login, loginAnonymously } = useAuth()
+  const { user, login, loginAnonymously, isLoading: isAuthLoading } = useAuth()
   const router = useRouter()
+
+  // Auto-redirect if user is already logged in
+  useEffect(() => {
+    if (user && !isAuthLoading) {
+      router.push("/gallery")
+    }
+  }, [user, isAuthLoading, router])
 
   const handleGoogleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -24,16 +31,15 @@ export default function LoginPage() {
     try {
       const success = await login()
 
-      if (success) {
-        router.push("/gallery")
-      } else {
+      if (!success) {
         setError("Google 로그인에 실패했습니다. 다시 시도해주세요.")
+        setIsLoading(false)
       }
+      // Don't push here; let the useEffect above handle the redirect
     } catch (err) {
       setError("로그인 중 오류가 발생했습니다.")
+      setIsLoading(false)
     }
-
-    setIsLoading(false)
   }
 
   const handleAnonymousLogin = async (e: React.FormEvent) => {
@@ -44,16 +50,15 @@ export default function LoginPage() {
     try {
       const success = await loginAnonymously()
 
-      if (success) {
-        router.push("/gallery")
-      } else {
+      if (!success) {
         setError("익명 로그인에 실패했습니다. 다시 시도해주세요.")
+        setIsLoading(false)
       }
+      // Don't push here; let the useEffect above handle the redirect
     } catch (err) {
       setError("로그인 중 오류가 발생했습니다.")
+      setIsLoading(false)
     }
-
-    setIsLoading(false)
   }
 
   return (
