@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast"
 import { Spinner } from "@/components/ui/spinner"
 import { db } from "@/lib/firebase"
+import { dataURLToBlob } from "@/lib/utils"
 import { doc, getDoc, setDoc, updateDoc, collection } from "firebase/firestore"
 import { storage } from "@/lib/firebase"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
@@ -55,27 +56,24 @@ export default function DrawPage() {
       // Generate character ID
       const characterId = `char-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 
-      // Convert base64 to blob
-      const base64Data = imageData.replace(/^data:image\/\w+;base64,/, "")
-      const byteCharacters = atob(base64Data)
-      const byteNumbers = new Array(byteCharacters.length)
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i)
-      }
-      const byteArray = new Uint8Array(byteNumbers)
-      const blob = new Blob([byteArray], { type: "image/png" })
+      // Convert data URL to Blob
+      const blob = dataURLToBlob(imageData)
 
   // Upload to Storage directly from client
       const filePath = `characters/${user.id}/${characterId}.png`
       const storageRef = ref(storage, filePath)
       
-      console.log("Uploading to Storage:", filePath)
-      
+      if (process.env.NODE_ENV !== "production") {
+        console.log("Uploading to Storage:", filePath)
+      }
+
       try {
         await uploadBytes(storageRef, blob, {
           contentType: "image/png",
         })
-        console.log("Upload successful")
+        if (process.env.NODE_ENV !== "production") {
+          console.log("Upload successful")
+        }
       } catch (uploadError) {
         console.error("Storage upload error:", uploadError)
         throw new Error(`Storage upload failed: ${uploadError instanceof Error ? uploadError.message : String(uploadError)}`)
@@ -91,7 +89,9 @@ export default function DrawPage() {
       }
 
       // Create character document in Firestore (client-side with auth)
-      console.log("Creating character document in Firestore")
+      if (process.env.NODE_ENV !== "production") {
+        console.log("Creating character document in Firestore")
+      }
 
       // Check and update user's character count
       const userDocRef = doc(db, "users", user.id)
@@ -117,6 +117,8 @@ export default function DrawPage() {
         userId: user.id,
         // Prefer public download URL to avoid 404s when rendering
         imageUrl: downloadURL,
+        // Random key for fair matchmaking (rank-agnostic sampling)
+        rand: Math.random(),
         rank: 1000,
         wins: 0,
         losses: 0,

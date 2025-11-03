@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
 
     // Use Gemini API for battle judgment
     let battleResult: "win" | "loss" | "draw" = "draw"
-  let reasoning = ""
+    let reasoning = ""
     let pointsChange = 0
 
     try {
@@ -65,13 +65,13 @@ How to judge:
 Output format (JSON only, no extra text):
 {
   "result": "win" | "loss" | "draw",
-  "reasoning": "한국어 100자 이내의 간결한 판정 이유",
+  "reasoning": "한국어 30~100자(최소 30자 권장)의 간결한 판정 이유",
   "pointsChange": number (win: +20, loss: -15, draw: 0)
 }
 
 Constraints:
 - Respond only in JSON. No markdown, no explanations outside JSON.
-- Reasoning must be <= 100 characters in Korean and action-focused.`
+- Reasoning should be between 30 and 100 Korean characters (prefer ≥ 30), and be action-focused.`
 
       // Build candidate endpoints dynamically; avoid unsupported aliases
       const preferredModels: string[] = [
@@ -186,7 +186,7 @@ Constraints:
         }
       }
 
-  if (!resp) throw lastErr ?? new Error("Gemini request failed")
+    if (!resp) throw lastErr ?? new Error("Gemini request failed")
       const json = await resp.json()
       // Try to pull text safely from candidates (Gemini schema)
       let text = json?.candidates?.[0]?.content?.parts?.[0]?.text || ""
@@ -214,7 +214,7 @@ Constraints:
         // If empty, we keep it empty (no fixed phrases)
         if (reasoning.length > 100) reasoning = reasoning.slice(0, 100)
       }
-    } catch (aiError) {
+  } catch (aiError) {
       const msg = aiError instanceof Error ? aiError.message : String(aiError)
       if (msg.includes("NOT_FOUND") || msg.includes("models/")) {
         console.info("AI model selection fallback:", msg)
@@ -234,7 +234,105 @@ Constraints:
       }
       reasoning = ""
     }
-    return NextResponse.json({ success: true, result: battleResult, reasoning, pointsChange })
+
+    // Build updated stats for both characters
+    const computeStats = (current: any, isPlayer: boolean) => {
+      const wins = (current?.wins || 0) + (battleResult === (isPlayer ? "win" : "loss") ? 1 : 0)
+      const losses = (current?.losses || 0) + (battleResult === (isPlayer ? "loss" : "win") ? 1 : 0)
+      const draws = (current?.draws || 0) + (battleResult === "draw" ? 1 : 0)
+      const totalBattles = (current?.totalBattles || 0) + 1
+      const winRate = totalBattles > 0 ? (wins / totalBattles) * 100 : 0
+      const rankDelta = pointsChange
+      const rank = Math.max(1, (current?.rank || 1000) + (isPlayer ? rankDelta : -rankDelta))
+      return { wins, losses, draws, totalBattles, winRate, rank }
+    }
+
+    // Attempt to persist on server using firebase-admin if available
+    let persisted = false
+    let updatedPlayer: any = null
+    let updatedOpponent: any = null
+
+    try {
+      // Dynamic require to avoid hard dependency if not installed
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const admin = require("firebase-admin") as any
+      if (!admin.apps || admin.apps.length === 0) {
+        const svcJson = process.env.FIREBASE_SERVICE_ACCOUNT_KEY_JSON
+        if (!svcJson) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_KEY_JSON")
+        const cred = admin.credential.cert(JSON.parse(svcJson))
+        admin.initializeApp({ credential: cred, projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID })
+      }
+      const db = admin.firestore()
+      const FieldValue = admin.firestore.FieldValue
+
+      await db.runTransaction(async (tx: any) => {
+        const playerRef = db.collection("characters").doc(String(player.id))
+        const opponentRef = db.collection("characters").doc(String(opponent.id))
+        const playerSnap = await tx.get(playerRef)
+        const opponentSnap = await tx.get(opponentRef)
+        if (!playerSnap.exists || !opponentSnap.exists) throw new Error("캐릭터 문서를 찾을 수 없습니다")
+        const p = playerSnap.data()
+        const o = opponentSnap.data()
+        const pStats = computeStats(p, true)
+        const oStats = computeStats(o, false)
+
+        updatedPlayer = {
+          rank: pStats.rank,
+          wins: pStats.wins,
+          losses: pStats.losses,
+          draws: pStats.draws,
+          totalBattles: pStats.totalBattles,
+          winRate: pStats.winRate,
+          updatedAt: FieldValue.serverTimestamp(),
+          lastBattleAt: FieldValue.serverTimestamp(),
+        }
+        updatedOpponent = {
+          rank: oStats.rank,
+          wins: oStats.wins,
+          losses: oStats.losses,
+          draws: oStats.draws,
+          totalBattles: oStats.totalBattles,
+          winRate: oStats.winRate,
+          updatedAt: FieldValue.serverTimestamp(),
+          lastBattleAt: FieldValue.serverTimestamp(),
+        }
+
+        tx.update(playerRef, updatedPlayer)
+        tx.update(opponentRef, updatedOpponent)
+
+        // Write battle record
+        const battleId = `battle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        const record = {
+          id: battleId,
+          characterId: String(player.id),
+          opponentId: String(opponent.id),
+          result: battleResult,
+          reasoning,
+          pointsChange,
+          characterRankBefore: p?.rank ?? 1000,
+          characterRankAfter: pStats.rank,
+          opponentRankBefore: o?.rank ?? 1000,
+          opponentRankAfter: oStats.rank,
+          createdAt: FieldValue.serverTimestamp(),
+        }
+        tx.set(db.collection("battles").doc(battleId), record)
+      })
+      persisted = true
+    } catch (persistErr) {
+      // If admin not configured or fails, fall back to client-side update
+      // eslint-disable-next-line no-console
+      console.info("Server persistence skipped:", (persistErr as Error)?.message)
+    }
+
+    return NextResponse.json({
+      success: true,
+      result: battleResult,
+      reasoning,
+      pointsChange,
+      persisted,
+      updatedPlayer,
+      updatedOpponent,
+    })
   } catch (error) {
     console.error("Battle API error:", error)
     return NextResponse.json({ error: "Failed to process battle" }, { status: 500 })

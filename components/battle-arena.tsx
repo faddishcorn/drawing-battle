@@ -5,34 +5,18 @@ import { useToast } from "@/hooks/use-toast"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Swords, Trophy, Zap, HelpCircle } from "lucide-react"
+import { Swords, Trophy, Zap } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { db, storage } from "@/lib/firebase"
-import { collection, doc, getDoc, getDocs, limit, orderBy, query, setDoc, updateDoc, serverTimestamp, Timestamp } from "firebase/firestore"
+import { collection, doc, getDoc, getDocs, limit, orderBy, query, setDoc, updateDoc, serverTimestamp, Timestamp, startAt } from "firebase/firestore"
+import type { Character, BattleState, BattleResult } from "@/lib/types"
 import { getDownloadURL, ref } from "firebase/storage"
 
-interface CharacterProps {
-  id: string
-  name: string
-  userId: string
-  imageUrl: string
-  rank: number
-  wins: number
-  losses: number
-  draws: number
-  winRate: number
-  totalBattles: number
-  lastBattleAt?: Timestamp
-}
-
 interface BattleArenaProps {
-  myCharacter: CharacterProps
+  myCharacter: Character
   userId: string
 }
-
-type BattleState = "ready" | "matching" | "battling" | "finished"
-type BattleResult = "win" | "loss" | "draw"
 
 export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
   const router = useRouter()
@@ -41,9 +25,12 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
   const [result, setResult] = useState<BattleResult | null>(null)
   const [reasoning, setReasoning] = useState<string>("")
   const [pointsChange, setPointsChange] = useState<number>(0)
-  const [opponent, setOpponent] = useState<CharacterProps | null>(null)
+  const [opponent, setOpponent] = useState<Character | null>(null)
   const [newRank, setNewRank] = useState<number>(myCharacter.rank)
+  const [finalPlayer, setFinalPlayer] = useState<Partial<Character> | null>(null)
+  const [finalOpponent, setFinalOpponent] = useState<Partial<Character> | null>(null)
   const [myImageSrc, setMyImageSrc] = useState<string>(myCharacter.imageUrl)
+  const [opponentImageSrc, setOpponentImageSrc] = useState<string>("")
   const [cooldownMs, setCooldownMs] = useState<number>(0)
   const COOLDOWN_MS = 15_000
 
@@ -81,7 +68,7 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
       try {
         const refDoc = await getDoc(doc(db, "characters", myCharacter.id))
         if (!mounted) return
-        const data = refDoc.data() as CharacterProps | undefined
+  const data = refDoc.data() as Character | undefined
         const last = data?.lastBattleAt as Timestamp | undefined
         if (last) {
           const until = last.toMillis() + COOLDOWN_MS
@@ -116,7 +103,7 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
     // Guard by cooldown before doing anything heavy
     try {
       const refDoc = await getDoc(doc(db, "characters", myCharacter.id))
-      const data = refDoc.data() as CharacterProps | undefined
+  const data = refDoc.data() as Character | undefined
       const last = data?.lastBattleAt as Timestamp | undefined
       if (last) {
         const remain = last.toMillis() + COOLDOWN_MS - Date.now()
@@ -138,32 +125,54 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
     try {
       await new Promise((resolve) => setTimeout(resolve, 700))
 
-      // 1) Pick opponent client-side (top 50 by rank, then filter out my characters)
-      const q = query(collection(db, "characters"), orderBy("rank", "desc"), limit(50))
-      const snap = await getDocs(q)
-      const others = snap.docs
-        .map((d) => d.data() as CharacterProps)
-        .filter((c) => c.userId !== userId && c.id !== myCharacter.id)
+      // 1) Pick opponent fairly (rank-agnostic): random-key sampling on 'rand' field
+  let picked: Character | null = null
+      const r = Math.random()
+      // Try forward slice from random threshold
+      const tryQueries = [
+        query(collection(db, "characters"), orderBy("rand"), startAt(r), limit(30)),
+        // Fallback: start from beginning
+        query(collection(db, "characters"), orderBy("rand"), limit(30)),
+        // Legacy fallback: biased (rank desc) to avoid total failure on missing 'rand'
+        query(collection(db, "characters"), orderBy("rank", "desc"), limit(50)),
+      ]
 
-      if (others.length === 0) {
-        throw new Error("상대가 없습니다. 다른 사용자가 캐릭터를 만들 때까지 기다려주세요.")
+      for (const q of tryQueries) {
+        const snap = await getDocs(q)
+        const pool = snap.docs
+          .map((d) => d.data() as Character)
+          .filter((c) => c.userId !== userId && c.id !== myCharacter.id)
+        if (pool.length > 0) {
+          picked = pool[Math.floor(Math.random() * pool.length)]
+          break
+        }
       }
 
-      const picked = others[Math.floor(Math.random() * others.length)]
+      if (!picked) {
+        throw new Error("상대가 없습니다. 다른 사용자가 캐릭터를 만들 때까지 기다려주세요.")
+      }
+      
+      setOpponent(picked)
       setOpponent(picked)
 
       setBattleState("battling")
 
-      // Resolve opponent image URL for AI (kept hidden in UI)
+      // Resolve opponent image URL for AI and UI rendering
       let opponentImageForAI: string | undefined = undefined
       try {
         if (picked.imageUrl?.startsWith("http://") || picked.imageUrl?.startsWith("https://")) {
           opponentImageForAI = picked.imageUrl
+          setOpponentImageSrc(picked.imageUrl)
         } else if (picked.imageUrl) {
-          opponentImageForAI = await getDownloadURL(ref(storage, picked.imageUrl))
+          const url = await getDownloadURL(ref(storage, picked.imageUrl))
+          opponentImageForAI = url
+          setOpponentImageSrc(url)
+        } else {
+          setOpponentImageSrc("")
         }
       } catch (e) {
         console.warn("Failed to resolve opponent image URL for AI", e)
+        setOpponentImageSrc("")
       }
 
       // Prefer the resolved public URL for my character as well
@@ -182,25 +191,28 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
       })
 
       if (!response.ok) throw new Error("Battle failed")
-      const data = await response.json()
+  const data = await response.json()
 
-      const battleResult = data.result as BattleResult
-      const delta = Number(data.pointsChange) || 0
+  const battleResult = data.result as BattleResult
+  const delta = Number(data.pointsChange) || 0
 
       // 3) Update both characters in Firestore
-  const playerRef = doc(db, "characters", myCharacter.id)
+    const playerRef = doc(db, "characters", myCharacter.id)
 
-      const playerSnap = await getDoc(playerRef)
-  const oppSnap = await getDoc(doc(db, "characters", picked.id))
-  if (!playerSnap.exists() || !oppSnap.exists()) throw new Error("캐릭터 문서를 찾을 수 없습니다")
+    const playerSnap = await getDoc(playerRef)
+    const oppSnap = await getDoc(doc(db, "characters", picked.id))
+    if (!playerSnap.exists() || !oppSnap.exists()) throw new Error("캐릭터 문서를 찾을 수 없습니다")
 
-      const player = playerSnap.data() as CharacterProps
-      const opp = oppSnap.data() as CharacterProps
+  const player = playerSnap.data() as Character
+  const opp = oppSnap.data() as Character
 
-      const playerNewRank = Math.max(1, player.rank + delta)
-      const oppNewRank = Math.max(1, opp.rank - delta)
+  const playerNewRank = Math.max(1, player.rank + delta)
+  const oppNewRank = Math.max(1, opp.rank - delta)
 
-      const newPlayerStats = {
+      // Use server-computed stats when available to avoid interim inconsistencies
+      const apiPlayer = data?.updatedPlayer
+      const apiOpponent = data?.updatedOpponent
+      const newPlayerStats = apiPlayer ?? {
         rank: playerNewRank,
         wins: player.wins + (battleResult === "win" ? 1 : 0),
         losses: player.losses + (battleResult === "loss" ? 1 : 0),
@@ -211,7 +223,7 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
         updatedAt: serverTimestamp(),
         lastBattleAt: serverTimestamp(),
       }
-      const newOppStats = {
+      const newOppStats = apiOpponent ?? {
         rank: oppNewRank,
         wins: opp.wins + (battleResult === "loss" ? 1 : 0),
         losses: opp.losses + (battleResult === "win" ? 1 : 0),
@@ -221,30 +233,36 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
         updatedAt: serverTimestamp(),
       }
 
-  // Update only my character on client (opponent update requires server/admin)
-  await updateDoc(playerRef, newPlayerStats)
+      // If server already persisted both, skip client writes
+      if (!data?.persisted) {
+        await updateDoc(playerRef, newPlayerStats)
+      }
 
       // 4) Save battle record
-      const battleId = `battle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-      await setDoc(doc(db, "battles", battleId), {
-        id: battleId,
-        characterId: myCharacter.id,
-        opponentId: picked.id,
-        result: battleResult,
-        reasoning: data.reasoning,
-        pointsChange: delta,
-        characterRankBefore: player.rank,
-        characterRankAfter: playerNewRank,
-        opponentRankBefore: opp.rank,
-        opponentRankAfter: oppNewRank,
-        createdAt: new Date(),
-      })
+      if (!data?.persisted) {
+        const battleId = `battle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        await setDoc(doc(db, "battles", battleId), {
+          id: battleId,
+          characterId: myCharacter.id,
+          opponentId: picked.id,
+          result: battleResult,
+          reasoning: data.reasoning,
+          pointsChange: delta,
+          characterRankBefore: player.rank,
+          characterRankAfter: newPlayerStats.rank,
+          opponentRankBefore: opp.rank,
+          opponentRankAfter: newOppStats.rank,
+          createdAt: new Date(),
+        })
+      }
 
       setResult(battleResult)
       setReasoning(data.reasoning)
       setPointsChange(delta)
-      setNewRank(playerNewRank)
-  setOpponent({ ...picked, rank: oppNewRank, wins: newOppStats.wins, losses: newOppStats.losses, draws: newOppStats.draws, totalBattles: newOppStats.totalBattles, winRate: newOppStats.winRate })
+    setNewRank(newPlayerStats.rank)
+    setFinalPlayer({ ...player, ...newPlayerStats })
+    setFinalOpponent({ ...picked, ...newOppStats })
+    setOpponent({ ...picked, rank: newOppStats.rank, wins: newOppStats.wins, losses: newOppStats.losses, draws: newOppStats.draws, totalBattles: newOppStats.totalBattles, winRate: newOppStats.winRate })
       // Start local cooldown timer right away
       setCooldownMs(COOLDOWN_MS)
       const start = Date.now()
@@ -285,7 +303,7 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
         <div className="max-w-md mx-auto space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-center">내 캐릭터</CardTitle>
+              <CardTitle className="text-center">{myCharacter.name}</CardTitle>
               <Badge variant="secondary" className="mx-auto gap-1">
                 <Trophy className="h-3 w-3" />
                 랭크 {myCharacter.rank}
@@ -329,7 +347,7 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
             className={cn("transition-all", battleState === "finished" && result === "win" && "ring-2 ring-green-500")}
           >
             <CardHeader>
-              <CardTitle className="text-center">내 캐릭터</CardTitle>
+              <CardTitle className="text-center">{myCharacter.name}</CardTitle>
               <Badge variant="secondary" className="mx-auto gap-1">
                 <Trophy className="h-3 w-3" />
                 랭크 {newRank}
@@ -342,11 +360,9 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
               <div className="mt-4 text-center text-sm">
                 <div className="text-muted-foreground">전적</div>
                 <div className="font-semibold">
-                  {result === "win"
-                    ? `${myCharacter.wins + 1}승 ${myCharacter.losses}패 ${myCharacter.draws}무`
-                    : result === "loss"
-                      ? `${myCharacter.wins}승 ${myCharacter.losses + 1}패 ${myCharacter.draws}무`
-                      : `${myCharacter.wins}승 ${myCharacter.losses}패 ${myCharacter.draws + 1}무`}
+                  {battleState === "finished" && finalPlayer
+                    ? `${finalPlayer.wins}승 ${finalPlayer.losses}패 ${finalPlayer.draws}무`
+                    : `${myCharacter.wins}승 ${myCharacter.losses}패 ${myCharacter.draws}무`}
                 </div>
               </div>
             </CardContent>
@@ -402,30 +418,16 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
             )}
           </div>
 
-          {/* Opponent Character - Hidden Image, but show name */}
+          {/* Opponent Character - Show image only (hide rank, record, nickname) */}
           <Card
             className={cn("transition-all", battleState === "finished" && result === "loss" && "ring-2 ring-red-500")}
           >
             <CardHeader>
               <CardTitle className="text-center">상대: {opponent.name}</CardTitle>
-              <Badge variant="secondary" className="mx-auto gap-1">
-                <Trophy className="h-3 w-3" />
-                랭크 {opponent.rank}
-              </Badge>
             </CardHeader>
             <CardContent>
-              <div className="aspect-square relative bg-muted rounded-lg overflow-hidden flex items-center justify-center">
-                <div className="text-center space-y-2">
-                  <HelpCircle className="h-16 w-16 mx-auto text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">???</p>
-                  <p className="text-xs text-muted-foreground">상대는 비밀입니다</p>
-                </div>
-              </div>
-              <div className="mt-4 text-center text-sm">
-                <div className="text-muted-foreground">전적</div>
-                <div className="font-semibold">
-                  {opponent.wins}승 {opponent.losses}패 {opponent.draws}무
-                </div>
+              <div className="aspect-square relative bg-muted rounded-lg overflow-hidden">
+                <img src={opponentImageSrc || "/placeholder.svg"} alt="Opponent Character" className="w-full h-full object-contain" />
               </div>
             </CardContent>
           </Card>

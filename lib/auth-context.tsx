@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import {
   signInWithPopup,
+  linkWithPopup,
   signOut,
   onAuthStateChanged,
   User as FirebaseUser,
@@ -74,7 +75,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (): Promise<boolean> => {
     try {
-      await signInWithPopup(auth, googleProvider)
+      // If the current session is anonymous, link Google to preserve the same UID
+      if (auth.currentUser && auth.currentUser.isAnonymous) {
+        await linkWithPopup(auth.currentUser, googleProvider)
+      } else {
+        await signInWithPopup(auth, googleProvider)
+      }
       // onAuthStateChanged will handle the rest
       return true
     } catch (error) {
