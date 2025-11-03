@@ -32,6 +32,7 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
   const [myImageSrc, setMyImageSrc] = useState<string>(myCharacter.imageUrl)
   const [opponentImageSrc, setOpponentImageSrc] = useState<string>("")
   const [cooldownMs, setCooldownMs] = useState<number>(0)
+  const [lastOpponentIdDoc, setLastOpponentIdDoc] = useState<string | null>(null)
   const COOLDOWN_MS = 15_000
 
   // Prevent immediate rematch: keep the last matched opponent per character in localStorage
@@ -86,8 +87,11 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
       try {
         const refDoc = await getDoc(doc(db, "characters", myCharacter.id))
         if (!mounted) return
-  const data = refDoc.data() as Character | undefined
+        const data = refDoc.data() as Character | undefined
         const last = data?.lastBattleAt as Timestamp | undefined
+        if (data?.lastOpponentId) {
+          setLastOpponentIdDoc(data.lastOpponentId)
+        }
         if (last) {
           const until = last.toMillis() + COOLDOWN_MS
           const now = Date.now()
@@ -162,8 +166,9 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
           .map((d) => d.data() as Character)
           .filter((c) => c.userId !== userId && c.id !== myCharacter.id)
         // Exclude the very last opponent if possible (avoid immediate rematch)
-        const withoutLast = lastId ? pool.filter((c) => c.id !== lastId) : pool
-        const finalPool = withoutLast.length > 0 ? withoutLast : pool
+        const withoutLocal = lastId ? pool.filter((c) => c.id !== lastId) : pool
+        const withoutDoc = lastOpponentIdDoc ? withoutLocal.filter((c) => c.id !== lastOpponentIdDoc) : withoutLocal
+        const finalPool = withoutDoc.length > 0 ? withoutDoc : pool
         if (finalPool.length > 0) {
           picked = finalPool[Math.floor(Math.random() * finalPool.length)]
           break
@@ -259,7 +264,7 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
 
       // If server already persisted both, skip client writes
       if (!data?.persisted) {
-        await updateDoc(playerRef, newPlayerStats)
+        await updateDoc(playerRef, { ...newPlayerStats, lastOpponentId: picked.id })
       }
 
       // 4) Save battle record
@@ -284,9 +289,10 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
       setReasoning(data.reasoning)
       setPointsChange(delta)
     setNewRank(newPlayerStats.rank)
-    setFinalPlayer({ ...player, ...newPlayerStats })
+  setFinalPlayer({ ...player, ...newPlayerStats })
     setFinalOpponent({ ...picked, ...newOppStats })
     setOpponent({ ...picked, rank: newOppStats.rank, wins: newOppStats.wins, losses: newOppStats.losses, draws: newOppStats.draws, totalBattles: newOppStats.totalBattles, winRate: newOppStats.winRate })
+  setLastOpponentIdDoc(picked.id)
       // Start local cooldown timer right away
       setCooldownMs(COOLDOWN_MS)
       const start = Date.now()

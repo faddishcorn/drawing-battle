@@ -15,4 +15,5 @@ export interface Character {
   winRate: number
   totalBattles: number
   lastBattleAt?: Timestamp
+  lastOpponentId?: string
 }
