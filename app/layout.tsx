@@ -17,6 +17,7 @@ export const metadata: Metadata = {
   title: "배틀 드로잉 - 캐릭터 배틀 게임",
   description: "직접 그린 캐릭터로 실시간 배틀을 즐겨보세요.",
   generator: "v0.app",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://example.com"),
   openGraph: {
     title: "배틀 드로잉 - 캐릭터 배틀 게임",
     description: "직접 그린 캐릭터로 실시간 배틀을 즐겨보세요.",
@@ -28,6 +29,12 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "배틀 드로잉 - 캐릭터 배틀 게임",
     description: "직접 그린 캐릭터로 실시간 배틀을 즐겨보세요.",
+  },
+  alternates: {
+    canonical: "/",
+  },
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || undefined,
   },
 }
 
