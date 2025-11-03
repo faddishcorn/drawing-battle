@@ -34,6 +34,24 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
   const [cooldownMs, setCooldownMs] = useState<number>(0)
   const COOLDOWN_MS = 15_000
 
+  // Prevent immediate rematch: keep the last matched opponent per character in localStorage
+  const RECENT_KEY = `recentOpp:${myCharacter.id}`
+  const getLastOpponentId = (): string | null => {
+    if (typeof window === "undefined") return null
+    try {
+      const v = window.localStorage.getItem(RECENT_KEY)
+      return v || null
+    } catch {
+      return null
+    }
+  }
+  const setLastOpponentId = (id: string) => {
+    if (typeof window === "undefined") return
+    try {
+      window.localStorage.setItem(RECENT_KEY, id)
+    } catch {}
+  }
+
   // Resolve my character image URL for rendering
   useEffect(() => {
     let mounted = true
@@ -137,13 +155,17 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
         query(collection(db, "characters"), orderBy("rank", "desc"), limit(50)),
       ]
 
+      const lastId = getLastOpponentId()
       for (const q of tryQueries) {
         const snap = await getDocs(q)
         const pool = snap.docs
           .map((d) => d.data() as Character)
           .filter((c) => c.userId !== userId && c.id !== myCharacter.id)
-        if (pool.length > 0) {
-          picked = pool[Math.floor(Math.random() * pool.length)]
+        // Exclude the very last opponent if possible (avoid immediate rematch)
+        const withoutLast = lastId ? pool.filter((c) => c.id !== lastId) : pool
+        const finalPool = withoutLast.length > 0 ? withoutLast : pool
+        if (finalPool.length > 0) {
+          picked = finalPool[Math.floor(Math.random() * finalPool.length)]
           break
         }
       }
@@ -151,6 +173,8 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
       if (!picked) {
         throw new Error("상대가 없습니다. 다른 사용자가 캐릭터를 만들 때까지 기다려주세요.")
       }
+  // Remember this opponent to avoid immediate rematch next time
+  setLastOpponentId(picked.id)
       
       setOpponent(picked)
       setOpponent(picked)
