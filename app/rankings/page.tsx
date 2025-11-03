@@ -90,7 +90,7 @@ export default function RankingsPage() {
                     이전
                   </Button>
                   <div className="text-sm text-muted-foreground">
-                    {currentPage} / {pageCount} 페이지 · 총 {allCharacters.length}명
+                    {currentPage} / {pageCount} 페이지 · 총 {allCharacters.length}개
                   </div>
                   <Button
                     variant="secondary"
