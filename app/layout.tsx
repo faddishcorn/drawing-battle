@@ -1,4 +1,5 @@
 import type React from "react"
+import { Suspense } from "react"
 import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
@@ -60,7 +61,11 @@ export default function RootLayout({
           <main className="min-h-[calc(100vh-4rem)]">{children}</main>
           <Toaster />
         </AuthProvider>
-        {GA_ID ? <GAListener /> : null}
+        {GA_ID ? (
+          <Suspense fallback={null}>
+            <GAListener />
+          </Suspense>
+        ) : null}
         <Analytics />
       </body>
     </html>
