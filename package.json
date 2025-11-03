@@ -4,6 +4,7 @@
   "private": true,
   "packageManager": "pnpm@10.20.0",
   "scripts": {
+    "preinstall": "npx only-allow pnpm",
     "build": "next build",
     "dev": "next dev",
     "lint": "eslint .",
@@ -47,6 +48,7 @@
     "date-fns": "4.1.0",
     "embla-carousel-react": "8.5.1",
     "firebase": "^12.5.0",
+    "firebase-admin": "12.6.0",
     "input-otp": "1.4.1",
     "lucide-react": "^0.454.0",
     "next": "16.0.0",

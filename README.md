@@ -26,3 +26,26 @@
 - Firebase(Auth/Firestore/Storage)
 - Google Gemini REST API
 
+## 개발/실행
+
+이 프로젝트는 pnpm을 표준 패키지 매니저로 사용합니다. package.json의 `packageManager`가 이를 명시하고, 설치 시 `preinstall` 훅이 npm/yarn 사용을 차단합니다.
+
+- 의존성 설치
+
+```bash
+pnpm install
+```
+
+- 개발 서버 실행
+
+```bash
+pnpm dev
+```
+
+- 프로덕션 빌드/실행
+
+```bash
+pnpm build
+pnpm start
+```
+
