@@ -402,12 +402,12 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
             )}
           </div>
 
-          {/* Opponent Character - Hidden */}
+          {/* Opponent Character - Hidden Image, but show name */}
           <Card
             className={cn("transition-all", battleState === "finished" && result === "loss" && "ring-2 ring-red-500")}
           >
             <CardHeader>
-              <CardTitle className="text-center">상대 캐릭터</CardTitle>
+              <CardTitle className="text-center">상대: {opponent.name}</CardTitle>
               <Badge variant="secondary" className="mx-auto gap-1">
                 <Trophy className="h-3 w-3" />
                 랭크 {opponent.rank}
