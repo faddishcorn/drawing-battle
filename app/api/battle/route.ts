@@ -62,7 +62,7 @@ Hard rules:
 Judging criteria:
 - Primary: decide who would likely WIN in a direct clash at a glance — who appears stronger/dominant overall. Consider dynamic pose, motion, threat, weaponry/abilities implied by the drawings.
 - Use clarity, composition, expression, and impact as supporting (secondary) signals.
-- Apply a modest penalty to low-effort work (text-only images, meaningless scribbles, extremely rough/unreadable doodles). Quality/completeness (form, color, layout, consistency) is a secondary factor and should not overrule clear superiority in the clash.
+- Apply a significant penalty to low-effort work (text-only images, meaningless scribbles, extremely rough/unreadable doodles). Quality/completeness (form, color, layout, consistency) is a secondary factor and should not overrule clear narrative superiority in the clash.
 - If helpful, infer a brief physical clash and who prevails; describe action in concise Korean (e.g., "칼이 사과를 반으로 가른다").
 
 Output (JSON only, no extra text):
