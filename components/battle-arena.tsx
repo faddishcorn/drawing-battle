@@ -67,6 +67,27 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
     } catch {}
   }
 
+  // Keep a small recent-opponent ring buffer locally to avoid 반복 매칭 (client-side only)
+  const RECENT_LIST_KEY = `recentOppList:${myCharacter.id}`
+  const getRecentOpponents = (): string[] => {
+    if (typeof window === 'undefined') return []
+    try {
+      const v = window.localStorage.getItem(RECENT_LIST_KEY)
+      const arr = v ? (JSON.parse(v) as unknown) : []
+      return Array.isArray(arr) ? (arr.filter((x) => typeof x === 'string') as string[]) : []
+    } catch {
+      return []
+    }
+  }
+  const pushRecentOpponent = (id: string) => {
+    if (typeof window === 'undefined') return
+    try {
+      const current = getRecentOpponents()
+      const next = [id, ...current.filter((x) => x !== id)].slice(0, 5) // keep last 5 unique
+      window.localStorage.setItem(RECENT_LIST_KEY, JSON.stringify(next))
+    } catch {}
+  }
+
   // Resolve my character image URL for rendering
   useEffect(() => {
     let mounted = true
@@ -160,31 +181,65 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
   async function pickOpponentFairly(): Promise<Character> {
     let picked: Character | null = null
     const r = Math.random()
+    // Slightly broader pools to improve diversity
     const tryQueries = [
-      query(collection(db, 'characters'), orderBy('rand'), startAt(r), limit(30)),
-      query(collection(db, 'characters'), orderBy('rand'), limit(30)),
-      query(collection(db, 'characters'), orderBy('rank', 'desc'), limit(50)),
+      query(collection(db, 'characters'), orderBy('rand'), startAt(r), limit(60)),
+      query(collection(db, 'characters'), orderBy('rand'), limit(60)),
+      query(collection(db, 'characters'), orderBy('rank', 'desc'), limit(80)),
     ]
 
     const lastId = getLastOpponentId()
+    const recentList = getRecentOpponents()
+    const excluded = new Set<string>([
+      myCharacter.id,
+      ...(lastId ? [lastId] : []),
+      ...(lastOpponentIdDoc ? [lastOpponentIdDoc] : []),
+      ...recentList,
+    ])
     for (const q of tryQueries) {
       const snap = await getDocs(q)
-      const pool = snap.docs
-        .map((d) => d.data() as Character)
-        .filter((c) => c.userId !== userId && c.id !== myCharacter.id)
-      const withoutLocal = lastId ? pool.filter((c) => c.id !== lastId) : pool
-      const withoutDoc = lastOpponentIdDoc
-        ? withoutLocal.filter((c) => c.id !== lastOpponentIdDoc)
-        : withoutLocal
-      const finalPool = withoutDoc.length > 0 ? withoutDoc : pool
+      const poolAll = snap.docs.map((d) => d.data() as Character)
+      const filtered = poolAll.filter((c) => c.userId !== userId && !excluded.has(c.id))
+      // If exclusion removes everything, fall back to the unfiltered pool to avoid dead-ends
+      const finalPool = filtered.length > 0 ? filtered : poolAll
       if (finalPool.length > 0) {
-        picked = finalPool[Math.floor(Math.random() * finalPool.length)]
+        // Fair pick: prefer opponents with older lastBattleAt, with slight random jitter
+        const now = Date.now()
+        const sampleK = Math.min(12, finalPool.length)
+        const takeRandomIndex = (max: number) => {
+          if (typeof crypto !== 'undefined' && 'getRandomValues' in crypto) {
+            const buf = new Uint32Array(1)
+            crypto.getRandomValues(buf)
+            return Number(buf[0] % max)
+          }
+          return Math.floor(Math.random() * max)
+        }
+        const sampled: Character[] = []
+        const used = new Set<number>()
+        while (sampled.length < sampleK) {
+          const idx = takeRandomIndex(finalPool.length)
+          if (!used.has(idx)) {
+            used.add(idx)
+            sampled.push(finalPool[idx])
+          }
+        }
+        let best: { c: Character; score: number } | null = null
+        for (const c of sampled) {
+          const t: any = (c as any).lastBattleAt
+          const ts = t?.toMillis ? t.toMillis() : t instanceof Date ? t.getTime() : 0
+          const staleness = ts ? Math.max(0, now - ts) : Number.MAX_SAFE_INTEGER / 4
+          const jitter = takeRandomIndex(1000)
+          const score = staleness + jitter
+          if (!best || score > best.score) best = { c, score }
+        }
+        picked = best ? best.c : finalPool[takeRandomIndex(finalPool.length)]
         break
       }
     }
     if (!picked)
       throw new Error('상대가 없습니다. 다른 사용자가 캐릭터를 만들 때까지 기다려주세요.')
     setLastOpponentId(picked.id)
+    pushRecentOpponent(picked.id)
     return picked
   }
 
@@ -280,7 +335,12 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
 
       // If server already persisted both, skip client writes
       if (!data?.persisted) {
-        await updateDoc(playerRef, { ...newPlayerStats, lastOpponentId: picked.id })
+        await updateDoc(playerRef, { ...newPlayerStats, lastOpponentId: picked.id, rand: Math.random() })
+      } else {
+        // Even if server persisted stats, refresh local 'rand' to keep matchmaking distribution fresh
+        try {
+          await updateDoc(playerRef, { rand: Math.random(), lastOpponentId: picked.id })
+        } catch {}
       }
 
       // 4) Save battle record
