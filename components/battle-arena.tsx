@@ -27,6 +27,66 @@ import type { Character, BattleState, BattleResult } from '@/lib/types'
 import { requestBattle } from '@/lib/api/battle'
 import { getDownloadURL, ref } from 'firebase/storage'
 
+// Download URL cache (memory + localStorage) and image preloader
+const downloadUrlMemoryCache = new Map<string, string>()
+
+function getDownloadUrlCacheKey(path: string) {
+  return `dlurl:${path}`
+}
+
+async function getCachedDownloadUrl(path: string): Promise<string> {
+  // 1) Memory cache
+  const mem = downloadUrlMemoryCache.get(path)
+  if (mem) return mem
+
+  // 2) localStorage cache
+  if (typeof window !== 'undefined') {
+    try {
+      const cached = window.localStorage.getItem(getDownloadUrlCacheKey(path))
+      if (cached) {
+        downloadUrlMemoryCache.set(path, cached)
+        return cached
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // 3) Fetch from Storage
+  const url = await getDownloadURL(ref(storage, path))
+  downloadUrlMemoryCache.set(path, url)
+  if (typeof window !== 'undefined') {
+    try {
+      window.localStorage.setItem(getDownloadUrlCacheKey(path), url)
+    } catch {
+      // ignore
+    }
+  }
+  return url
+}
+
+function preloadImage(url: string): Promise<void> {
+  return new Promise((resolve) => {
+    try {
+      const img = new Image()
+      img.decoding = 'async'
+      // @ts-ignore: fetchPriority may not be typed in some TS DOM versions
+      img.fetchPriority = 'high'
+      img.onload = () => resolve()
+      img.onerror = () => resolve()
+      img.src = url
+      // Try decode when available
+      // @ts-ignore
+      if (typeof img.decode === 'function') {
+        // @ts-ignore
+        img.decode().then(() => resolve()).catch(() => resolve())
+      }
+    } catch {
+      resolve()
+    }
+  })
+}
+
 interface BattleArenaProps {
   myCharacter: Character
   userId: string
@@ -104,7 +164,7 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
           if (mounted) setMyImageSrc(myCharacter.imageUrl)
           return
         }
-        const url = await getDownloadURL(ref(storage, myCharacter.imageUrl))
+        const url = await getCachedDownloadUrl(myCharacter.imageUrl)
         if (mounted) setMyImageSrc(url)
       } catch (e) {
         console.warn('Failed to load my character image URL', e)
@@ -247,7 +307,7 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
     if (!raw) return undefined
     if (raw.startsWith('http://') || raw.startsWith('https://')) return raw
     try {
-      const url = await getDownloadURL(ref(storage, raw))
+      const url = await getCachedDownloadUrl(raw)
       return url
     } catch {
       return undefined
@@ -276,19 +336,25 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
 
       setBattleState('battling')
 
-      // Resolve opponent image URL for AI and UI rendering
-      const opponentImageForAI = await resolveImageUrlForAI(picked.imageUrl)
-      setOpponentImageSrc(opponentImageForAI || '')
-      // Prefer the resolved public URL for my character as well
+      // Resolve opponent image URL for AI and UI rendering (prepare in advance)
+      const opponentUrlPromise = resolveImageUrlForAI(picked.imageUrl)
+      // Prefer already-resolved public URL for my character as well
       const playerImageForAI =
         myImageSrc && (myImageSrc.startsWith('http://') || myImageSrc.startsWith('https://'))
           ? myImageSrc
           : undefined
 
+      const opponentImageForAI = await opponentUrlPromise
+      setOpponentImageSrc(opponentImageForAI || '')
+      if (opponentImageForAI) {
+        // Preload opponent image to minimize first paint delay
+        void preloadImage(opponentImageForAI)
+      }
+
       // 2) Ask server for judgement only (send image URLs, ranks are ignored by server)
       const data = await requestBattle({
         player: { id: myCharacter.id, imageUrl: playerImageForAI },
-        opponent: { id: picked.id, imageUrl: opponentImageForAI },
+        opponent: { id: picked.id, imageUrl: opponentImageForAI || undefined },
       })
       const battleResult = data.result as BattleResult
       const delta = Number(data.pointsChange) || 0
@@ -429,6 +495,9 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
                   src={myImageSrc || '/placeholder.svg'}
                   alt="My Character"
                   className="w-full h-full object-contain"
+                  loading="eager"
+                  decoding="async"
+                  fetchPriority="high"
                 />
               </div>
               <div className="mt-4 text-center text-sm">
@@ -564,6 +633,9 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
                   src={opponentImageSrc || '/placeholder.svg'}
                   alt="Opponent Character"
                   className="w-full h-full object-contain"
+                  loading="eager"
+                  decoding="async"
+                  fetchPriority="high"
                 />
               </div>
             </CardContent>
