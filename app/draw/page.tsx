@@ -1,22 +1,21 @@
-"use client"
+'use client'
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { useAuth } from "@/lib/auth-context"
-import { DrawingCanvas } from "@/components/drawing-canvas"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { useToast } from "@/hooks/use-toast"
-import { Spinner } from "@/components/ui/spinner"
-import { db } from "@/lib/firebase"
-import { dataURLToBlob } from "@/lib/utils"
-import { doc, getDoc, setDoc, updateDoc, collection } from "firebase/firestore"
-import { storage } from "@/lib/firebase"
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/auth-context'
+import { DrawingCanvas } from '@/components/drawing-canvas'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useToast } from '@/hooks/use-toast'
+import { Spinner } from '@/components/ui/spinner'
+import { db, storage } from '@/lib/firebase'
+import { dataURLToBlob } from '@/lib/utils'
+import { doc, getDoc, setDoc, updateDoc, collection } from 'firebase/firestore'
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 
 export default function DrawPage() {
-  const [characterName, setCharacterName] = useState("")
+  const [characterName, setCharacterName] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [authLoading, setAuthLoading] = useState(true)
   const router = useRouter()
@@ -25,7 +24,7 @@ export default function DrawPage() {
 
   useEffect(() => {
     if (user === null) {
-      router.push("/login")
+      router.push('/login')
     } else {
       setAuthLoading(false)
     }
@@ -34,18 +33,18 @@ export default function DrawPage() {
   const handleSave = async (imageData: string) => {
     if (!characterName.trim()) {
       toast({
-        title: "Name Required",
-        description: "Please enter a name for your character",
-        variant: "destructive",
+        title: 'Name Required',
+        description: 'Please enter a name for your character',
+        variant: 'destructive',
       })
       return
     }
 
     if (!user) {
       toast({
-        title: "Not Authenticated",
-        description: "Please log in first",
-        variant: "destructive",
+        title: 'Not Authenticated',
+        description: 'Please log in first',
+        variant: 'destructive',
       })
       return
     }
@@ -59,42 +58,44 @@ export default function DrawPage() {
       // Convert data URL to Blob
       const blob = dataURLToBlob(imageData)
 
-  // Upload to Storage directly from client
+      // Upload to Storage directly from client
       const filePath = `characters/${user.id}/${characterId}.png`
       const storageRef = ref(storage, filePath)
-      
-      if (process.env.NODE_ENV !== "production") {
-        console.log("Uploading to Storage:", filePath)
+
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('Uploading to Storage:', filePath)
       }
 
       try {
         await uploadBytes(storageRef, blob, {
-          contentType: "image/png",
+          contentType: 'image/png',
         })
-        if (process.env.NODE_ENV !== "production") {
-          console.log("Upload successful")
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('Upload successful')
         }
       } catch (uploadError) {
-        console.error("Storage upload error:", uploadError)
-        throw new Error(`Storage upload failed: ${uploadError instanceof Error ? uploadError.message : String(uploadError)}`)
+        console.error('Storage upload error:', uploadError)
+        throw new Error(
+          `Storage upload failed: ${uploadError instanceof Error ? uploadError.message : String(uploadError)}`,
+        )
       }
 
       // Resolve public download URL and store it in Firestore
-      let downloadURL = ""
+      let downloadURL = ''
       try {
         downloadURL = await getDownloadURL(storageRef)
       } catch (urlError) {
-        console.warn("Failed to resolve download URL, fallback to storage path", urlError)
+        console.warn('Failed to resolve download URL, fallback to storage path', urlError)
         downloadURL = filePath
       }
 
       // Create character document in Firestore (client-side with auth)
-      if (process.env.NODE_ENV !== "production") {
-        console.log("Creating character document in Firestore")
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('Creating character document in Firestore')
       }
 
       // Check and update user's character count
-      const userDocRef = doc(db, "users", user.id)
+      const userDocRef = doc(db, 'users', user.id)
       const userSnap = await getDoc(userDocRef)
       if (!userSnap.exists()) {
         // Create user doc if missing (first login might not have created yet)
@@ -107,10 +108,10 @@ export default function DrawPage() {
       }
       const currentCount = (await getDoc(userDocRef)).data()?.characterCount || 0
       if (currentCount >= 3) {
-        throw new Error("You can have up to 3 characters only")
+        throw new Error('You can have up to 3 characters only')
       }
 
-      const characterDocRef = doc(collection(db, "characters"), characterId)
+      const characterDocRef = doc(collection(db, 'characters'), characterId)
       await setDoc(characterDocRef, {
         id: characterId,
         name: characterName,
@@ -132,23 +133,23 @@ export default function DrawPage() {
       await updateDoc(userDocRef, { characterCount: currentCount + 1 })
 
       toast({
-        title: "캐릭터 저장 완료!",
+        title: '캐릭터 저장 완료!',
         description: `${characterName} 그림이 저장되었습니다.`,
       })
 
       // Reset form
-      setCharacterName("")
+      setCharacterName('')
 
       // Redirect after a short delay
       setTimeout(() => {
-        router.push("/gallery")
+        router.push('/gallery')
       }, 1500)
     } catch (error) {
-      console.error("Full error:", error)
+      console.error('Full error:', error)
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create character",
-        variant: "destructive",
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to create character',
+        variant: 'destructive',
       })
     } finally {
       setIsLoading(false)
@@ -169,7 +170,9 @@ export default function DrawPage() {
         <Card>
           <CardHeader>
             <CardTitle>당신의 캐릭터를 그려보세요</CardTitle>
-            <CardDescription>캐릭터를 그리고 이름을 부여하세요. 그림은 3개까지 그릴 수 있습니다.</CardDescription>
+            <CardDescription>
+              캐릭터를 그리고 이름을 부여하세요. 그림은 3개까지 그릴 수 있습니다.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">

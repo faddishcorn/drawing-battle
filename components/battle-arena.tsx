@@ -1,17 +1,31 @@
-"use client"
+'use client'
 
-import { useEffect, useState } from "react"
-import { useToast } from "@/hooks/use-toast"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Swords, Trophy, Zap } from "lucide-react"
-import { useRouter } from "next/navigation"
-import { cn } from "@/lib/utils"
-import { db, storage } from "@/lib/firebase"
-import { collection, doc, getDoc, getDocs, limit, orderBy, query, setDoc, updateDoc, serverTimestamp, Timestamp, startAt } from "firebase/firestore"
-import type { Character, BattleState, BattleResult } from "@/lib/types"
-import { getDownloadURL, ref } from "firebase/storage"
+import { useEffect, useState } from 'react'
+import { useToast } from '@/hooks/use-toast'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Swords, Trophy, Zap } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { cn } from '@/lib/utils'
+import { db, storage } from '@/lib/firebase'
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  limit,
+  orderBy,
+  query,
+  setDoc,
+  updateDoc,
+  serverTimestamp,
+  Timestamp,
+  startAt,
+} from 'firebase/firestore'
+import type { Character, BattleState, BattleResult } from '@/lib/types'
+import { requestBattle } from '@/lib/api/battle'
+import { getDownloadURL, ref } from 'firebase/storage'
 
 interface BattleArenaProps {
   myCharacter: Character
@@ -21,16 +35,16 @@ interface BattleArenaProps {
 export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
   const router = useRouter()
   const { toast } = useToast()
-  const [battleState, setBattleState] = useState<BattleState>("ready")
+  const [battleState, setBattleState] = useState<BattleState>('ready')
   const [result, setResult] = useState<BattleResult | null>(null)
-  const [reasoning, setReasoning] = useState<string>("")
+  const [reasoning, setReasoning] = useState<string>('')
   const [pointsChange, setPointsChange] = useState<number>(0)
   const [opponent, setOpponent] = useState<Character | null>(null)
   const [newRank, setNewRank] = useState<number>(myCharacter.rank)
   const [finalPlayer, setFinalPlayer] = useState<Partial<Character> | null>(null)
   const [finalOpponent, setFinalOpponent] = useState<Partial<Character> | null>(null)
   const [myImageSrc, setMyImageSrc] = useState<string>(myCharacter.imageUrl)
-  const [opponentImageSrc, setOpponentImageSrc] = useState<string>("")
+  const [opponentImageSrc, setOpponentImageSrc] = useState<string>('')
   const [cooldownMs, setCooldownMs] = useState<number>(0)
   const [lastOpponentIdDoc, setLastOpponentIdDoc] = useState<string | null>(null)
   const COOLDOWN_MS = 15_000
@@ -38,7 +52,7 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
   // Prevent immediate rematch: keep the last matched opponent per character in localStorage
   const RECENT_KEY = `recentOpp:${myCharacter.id}`
   const getLastOpponentId = (): string | null => {
-    if (typeof window === "undefined") return null
+    if (typeof window === 'undefined') return null
     try {
       const v = window.localStorage.getItem(RECENT_KEY)
       return v || null
@@ -47,7 +61,7 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
     }
   }
   const setLastOpponentId = (id: string) => {
-    if (typeof window === "undefined") return
+    if (typeof window === 'undefined') return
     try {
       window.localStorage.setItem(RECENT_KEY, id)
     } catch {}
@@ -58,19 +72,22 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
     let mounted = true
     const load = async () => {
       try {
-        if (myCharacter.imageUrl.startsWith("data:")) {
+        if (myCharacter.imageUrl.startsWith('data:')) {
           if (mounted) setMyImageSrc(myCharacter.imageUrl)
           return
         }
-        if (myCharacter.imageUrl.startsWith("http://") || myCharacter.imageUrl.startsWith("https://")) {
+        if (
+          myCharacter.imageUrl.startsWith('http://') ||
+          myCharacter.imageUrl.startsWith('https://')
+        ) {
           if (mounted) setMyImageSrc(myCharacter.imageUrl)
           return
         }
         const url = await getDownloadURL(ref(storage, myCharacter.imageUrl))
         if (mounted) setMyImageSrc(url)
       } catch (e) {
-        console.warn("Failed to load my character image URL", e)
-        if (mounted) setMyImageSrc("")
+        console.warn('Failed to load my character image URL', e)
+        if (mounted) setMyImageSrc('')
       }
     }
     load()
@@ -85,7 +102,7 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
     let mounted = true
     const loadCooldown = async () => {
       try {
-        const refDoc = await getDoc(doc(db, "characters", myCharacter.id))
+        const refDoc = await getDoc(doc(db, 'characters', myCharacter.id))
         if (!mounted) return
         const data = refDoc.data() as Character | undefined
         const last = data?.lastBattleAt as Timestamp | undefined
@@ -118,14 +135,12 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
       mounted = false
       if (timer) clearInterval(timer)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myCharacter.id])
 
-  const startBattle = async () => {
-    // Guard by cooldown before doing anything heavy
+  async function guardCooldown() {
     try {
-      const refDoc = await getDoc(doc(db, "characters", myCharacter.id))
-  const data = refDoc.data() as Character | undefined
+      const refDoc = await getDoc(doc(db, 'characters', myCharacter.id))
+      const data = refDoc.data() as Character | undefined
       const last = data?.lastBattleAt as Timestamp | undefined
       if (last) {
         const remain = last.toMillis() + COOLDOWN_MS - Date.now()
@@ -135,132 +150,133 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
         }
       }
     } catch (e) {
-      if (e instanceof Error && e.message.startsWith("쿨다운 중")) {
-        toast({ title: "대기 시간", description: e.message, variant: "default" })
-        return
+      if (e instanceof Error && e.message.startsWith('쿨다운 중')) {
+        throw e
       }
       // if we fail to read, continue; fallback guard will be after result write
     }
+  }
 
-    setBattleState("matching")
+  async function pickOpponentFairly(): Promise<Character> {
+    let picked: Character | null = null
+    const r = Math.random()
+    const tryQueries = [
+      query(collection(db, 'characters'), orderBy('rand'), startAt(r), limit(30)),
+      query(collection(db, 'characters'), orderBy('rand'), limit(30)),
+      query(collection(db, 'characters'), orderBy('rank', 'desc'), limit(50)),
+    ]
+
+    const lastId = getLastOpponentId()
+    for (const q of tryQueries) {
+      const snap = await getDocs(q)
+      const pool = snap.docs
+        .map((d) => d.data() as Character)
+        .filter((c) => c.userId !== userId && c.id !== myCharacter.id)
+      const withoutLocal = lastId ? pool.filter((c) => c.id !== lastId) : pool
+      const withoutDoc = lastOpponentIdDoc
+        ? withoutLocal.filter((c) => c.id !== lastOpponentIdDoc)
+        : withoutLocal
+      const finalPool = withoutDoc.length > 0 ? withoutDoc : pool
+      if (finalPool.length > 0) {
+        picked = finalPool[Math.floor(Math.random() * finalPool.length)]
+        break
+      }
+    }
+    if (!picked)
+      throw new Error('상대가 없습니다. 다른 사용자가 캐릭터를 만들 때까지 기다려주세요.')
+    setLastOpponentId(picked.id)
+    return picked
+  }
+
+  async function resolveImageUrlForAI(raw: string): Promise<string | undefined> {
+    if (!raw) return undefined
+    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw
+    try {
+      const url = await getDownloadURL(ref(storage, raw))
+      return url
+    } catch {
+      return undefined
+    }
+  }
+
+  const startBattle = async () => {
+    // Guard by cooldown before doing anything heavy
+    try {
+      await guardCooldown()
+    } catch (e) {
+      if (e instanceof Error && e.message.startsWith('쿨다운 중')) {
+        toast({ title: '대기 시간', description: e.message, variant: 'default' })
+        return
+      }
+    }
+
+    setBattleState('matching')
 
     try {
       await new Promise((resolve) => setTimeout(resolve, 700))
 
-      // 1) Pick opponent fairly (rank-agnostic): random-key sampling on 'rand' field
-  let picked: Character | null = null
-      const r = Math.random()
-      // Try forward slice from random threshold
-      const tryQueries = [
-        query(collection(db, "characters"), orderBy("rand"), startAt(r), limit(30)),
-        // Fallback: start from beginning
-        query(collection(db, "characters"), orderBy("rand"), limit(30)),
-        // Legacy fallback: biased (rank desc) to avoid total failure on missing 'rand'
-        query(collection(db, "characters"), orderBy("rank", "desc"), limit(50)),
-      ]
-
-      const lastId = getLastOpponentId()
-      for (const q of tryQueries) {
-        const snap = await getDocs(q)
-        const pool = snap.docs
-          .map((d) => d.data() as Character)
-          .filter((c) => c.userId !== userId && c.id !== myCharacter.id)
-        // Exclude the very last opponent if possible (avoid immediate rematch)
-        const withoutLocal = lastId ? pool.filter((c) => c.id !== lastId) : pool
-        const withoutDoc = lastOpponentIdDoc ? withoutLocal.filter((c) => c.id !== lastOpponentIdDoc) : withoutLocal
-        const finalPool = withoutDoc.length > 0 ? withoutDoc : pool
-        if (finalPool.length > 0) {
-          picked = finalPool[Math.floor(Math.random() * finalPool.length)]
-          break
-        }
-      }
-
-      if (!picked) {
-        throw new Error("상대가 없습니다. 다른 사용자가 캐릭터를 만들 때까지 기다려주세요.")
-      }
-  // Remember this opponent to avoid immediate rematch next time
-  setLastOpponentId(picked.id)
-      
-      setOpponent(picked)
+      // 1) Pick opponent fairly (rank-agnostic)
+      const picked = await pickOpponentFairly()
       setOpponent(picked)
 
-      setBattleState("battling")
+      setBattleState('battling')
 
       // Resolve opponent image URL for AI and UI rendering
-      let opponentImageForAI: string | undefined = undefined
-      try {
-        if (picked.imageUrl?.startsWith("http://") || picked.imageUrl?.startsWith("https://")) {
-          opponentImageForAI = picked.imageUrl
-          setOpponentImageSrc(picked.imageUrl)
-        } else if (picked.imageUrl) {
-          const url = await getDownloadURL(ref(storage, picked.imageUrl))
-          opponentImageForAI = url
-          setOpponentImageSrc(url)
-        } else {
-          setOpponentImageSrc("")
-        }
-      } catch (e) {
-        console.warn("Failed to resolve opponent image URL for AI", e)
-        setOpponentImageSrc("")
-      }
-
+      const opponentImageForAI = await resolveImageUrlForAI(picked.imageUrl)
+      setOpponentImageSrc(opponentImageForAI || '')
       // Prefer the resolved public URL for my character as well
-      const playerImageForAI = myImageSrc && (myImageSrc.startsWith("http://") || myImageSrc.startsWith("https://"))
-        ? myImageSrc
-        : undefined
+      const playerImageForAI =
+        myImageSrc && (myImageSrc.startsWith('http://') || myImageSrc.startsWith('https://'))
+          ? myImageSrc
+          : undefined
 
       // 2) Ask server for judgement only (send image URLs, ranks are ignored by server)
-      const response = await fetch("/api/battle", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          player: { id: myCharacter.id, imageUrl: playerImageForAI },
-          opponent: { id: picked.id, imageUrl: opponentImageForAI },
-        }),
+      const data = await requestBattle({
+        player: { id: myCharacter.id, imageUrl: playerImageForAI },
+        opponent: { id: picked.id, imageUrl: opponentImageForAI },
       })
-
-      if (!response.ok) throw new Error("Battle failed")
-  const data = await response.json()
-
-  const battleResult = data.result as BattleResult
-  const delta = Number(data.pointsChange) || 0
+      const battleResult = data.result as BattleResult
+      const delta = Number(data.pointsChange) || 0
 
       // 3) Update both characters in Firestore
-    const playerRef = doc(db, "characters", myCharacter.id)
+      const playerRef = doc(db, 'characters', myCharacter.id)
 
-    const playerSnap = await getDoc(playerRef)
-    const oppSnap = await getDoc(doc(db, "characters", picked.id))
-    if (!playerSnap.exists() || !oppSnap.exists()) throw new Error("캐릭터 문서를 찾을 수 없습니다")
+      const playerSnap = await getDoc(playerRef)
+      const oppSnap = await getDoc(doc(db, 'characters', picked.id))
+      if (!playerSnap.exists() || !oppSnap.exists())
+        throw new Error('캐릭터 문서를 찾을 수 없습니다')
 
-  const player = playerSnap.data() as Character
-  const opp = oppSnap.data() as Character
+      const player = playerSnap.data() as Character
+      const opp = oppSnap.data() as Character
 
-  const playerNewRank = Math.max(1, player.rank + delta)
-  const oppNewRank = Math.max(1, opp.rank - delta)
+      const playerNewRank = Math.max(1, player.rank + delta)
+      const oppNewRank = Math.max(1, opp.rank - delta)
 
       // Use server-computed stats when available to avoid interim inconsistencies
-      const apiPlayer = data?.updatedPlayer
-      const apiOpponent = data?.updatedOpponent
-      const newPlayerStats = apiPlayer ?? {
+      const apiPlayer = data?.updatedPlayer as Partial<Character> | undefined
+      const apiOpponent = data?.updatedOpponent as Partial<Character> | undefined
+      const newPlayerStats = {
         rank: playerNewRank,
-        wins: player.wins + (battleResult === "win" ? 1 : 0),
-        losses: player.losses + (battleResult === "loss" ? 1 : 0),
-        draws: player.draws + (battleResult === "draw" ? 1 : 0),
+        wins: player.wins + (battleResult === 'win' ? 1 : 0),
+        losses: player.losses + (battleResult === 'loss' ? 1 : 0),
+        draws: player.draws + (battleResult === 'draw' ? 1 : 0),
         totalBattles: player.totalBattles + 1,
         winRate:
-          ((player.wins + (battleResult === "win" ? 1 : 0)) / (player.totalBattles + 1)) * 100,
+          ((player.wins + (battleResult === 'win' ? 1 : 0)) / (player.totalBattles + 1)) * 100,
         updatedAt: serverTimestamp(),
         lastBattleAt: serverTimestamp(),
-      }
-      const newOppStats = apiOpponent ?? {
+        ...(apiPlayer ?? {}),
+      } as Partial<Character>
+      const newOppStats = {
         rank: oppNewRank,
-        wins: opp.wins + (battleResult === "loss" ? 1 : 0),
-        losses: opp.losses + (battleResult === "win" ? 1 : 0),
-        draws: opp.draws + (battleResult === "draw" ? 1 : 0),
+        wins: opp.wins + (battleResult === 'loss' ? 1 : 0),
+        losses: opp.losses + (battleResult === 'win' ? 1 : 0),
+        draws: opp.draws + (battleResult === 'draw' ? 1 : 0),
         totalBattles: opp.totalBattles + 1,
-        winRate: ((opp.wins + (battleResult === "loss" ? 1 : 0)) / (opp.totalBattles + 1)) * 100,
+        winRate: ((opp.wins + (battleResult === 'loss' ? 1 : 0)) / (opp.totalBattles + 1)) * 100,
         updatedAt: serverTimestamp(),
-      }
+        ...(apiOpponent ?? {}),
+      } as Partial<Character>
 
       // If server already persisted both, skip client writes
       if (!data?.persisted) {
@@ -270,7 +286,7 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
       // 4) Save battle record
       if (!data?.persisted) {
         const battleId = `battle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-        await setDoc(doc(db, "battles", battleId), {
+        await setDoc(doc(db, 'battles', battleId), {
           id: battleId,
           characterId: myCharacter.id,
           opponentId: picked.id,
@@ -288,11 +304,19 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
       setResult(battleResult)
       setReasoning(data.reasoning)
       setPointsChange(delta)
-    setNewRank(newPlayerStats.rank)
-  setFinalPlayer({ ...player, ...newPlayerStats })
-    setFinalOpponent({ ...picked, ...newOppStats })
-    setOpponent({ ...picked, rank: newOppStats.rank, wins: newOppStats.wins, losses: newOppStats.losses, draws: newOppStats.draws, totalBattles: newOppStats.totalBattles, winRate: newOppStats.winRate })
-  setLastOpponentIdDoc(picked.id)
+      setNewRank((newPlayerStats.rank ?? playerNewRank) as number)
+      setFinalPlayer({ ...player, ...newPlayerStats })
+      setFinalOpponent({ ...picked, ...newOppStats })
+      setOpponent({
+        ...picked,
+        rank: (newOppStats.rank ?? oppNewRank) as number,
+        wins: (newOppStats.wins ?? opp.wins) as number,
+        losses: (newOppStats.losses ?? opp.losses) as number,
+        draws: (newOppStats.draws ?? opp.draws) as number,
+        totalBattles: (newOppStats.totalBattles ?? opp.totalBattles) as number,
+        winRate: (newOppStats.winRate ?? opp.winRate) as number,
+      })
+      setLastOpponentIdDoc(picked.id)
       // Start local cooldown timer right away
       setCooldownMs(COOLDOWN_MS)
       const start = Date.now()
@@ -302,19 +326,19 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
         if (left <= 0) clearInterval(tick)
       }, 250)
 
-      setBattleState("finished")
+      setBattleState('finished')
     } catch (error) {
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Battle failed",
-        variant: "destructive",
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Battle failed',
+        variant: 'destructive',
       })
-      setBattleState("ready")
+      setBattleState('ready')
     }
   }
 
   const handleContinue = () => {
-    router.push("/gallery")
+    router.push('/gallery')
   }
 
   return (
@@ -322,14 +346,14 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
       <div className="text-center">
         <h2 className="text-3xl font-bold">배틀 아레나</h2>
         <p className="text-muted-foreground mt-1">
-          {battleState === "ready" && "배틀을 시작하세요!"}
-          {battleState === "matching" && "상대를 찾는 중..."}
-          {battleState === "battling" && "AI가 배틀을 분석하는 중..."}
-          {battleState === "finished" && "배틀 결과"}
+          {battleState === 'ready' && '배틀을 시작하세요!'}
+          {battleState === 'matching' && '상대를 찾는 중...'}
+          {battleState === 'battling' && 'AI가 배틀을 분석하는 중...'}
+          {battleState === 'finished' && '배틀 결과'}
         </p>
       </div>
 
-      {battleState === "ready" && (
+      {battleState === 'ready' && (
         <div className="max-w-md mx-auto space-y-6">
           <Card>
             <CardHeader>
@@ -341,7 +365,11 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
             </CardHeader>
             <CardContent>
               <div className="aspect-square relative bg-muted rounded-lg overflow-hidden">
-                <img src={myImageSrc || "/placeholder.svg"} alt="My Character" className="w-full h-full object-contain" />
+                <img
+                  src={myImageSrc || '/placeholder.svg'}
+                  alt="My Character"
+                  className="w-full h-full object-contain"
+                />
               </div>
               <div className="mt-4 text-center text-sm">
                 <div className="text-muted-foreground">전적</div>
@@ -353,15 +381,20 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
           </Card>
 
           <div className="flex justify-center">
-            <Button size="lg" onClick={startBattle} className="gap-2" disabled={cooldownMs > 0 || battleState !== "ready"}>
+            <Button
+              size="lg"
+              onClick={startBattle}
+              className="gap-2"
+              disabled={cooldownMs > 0 || battleState !== 'ready'}
+            >
               <Zap className="h-5 w-5" />
-              {cooldownMs > 0 ? `쿨다운 ${Math.ceil(cooldownMs/1000)}초` : "배틀 시작"}
+              {cooldownMs > 0 ? `쿨다운 ${Math.ceil(cooldownMs / 1000)}초` : '배틀 시작'}
             </Button>
           </div>
         </div>
       )}
 
-      {battleState === "matching" && (
+      {battleState === 'matching' && (
         <div className="flex flex-col items-center justify-center gap-6 py-12">
           <div className="relative">
             <Swords className="h-20 w-20 text-primary animate-spin" />
@@ -370,11 +403,14 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
         </div>
       )}
 
-      {(battleState === "battling" || battleState === "finished") && opponent && (
+      {(battleState === 'battling' || battleState === 'finished') && opponent && (
         <div className="grid md:grid-cols-3 gap-6 items-center">
           {/* My Character */}
           <Card
-            className={cn("transition-all", battleState === "finished" && result === "win" && "ring-2 ring-green-500")}
+            className={cn(
+              'transition-all',
+              battleState === 'finished' && result === 'win' && 'ring-2 ring-green-500',
+            )}
           >
             <CardHeader>
               <CardTitle className="text-center">{myCharacter.name}</CardTitle>
@@ -385,12 +421,16 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
             </CardHeader>
             <CardContent>
               <div className="aspect-square relative bg-muted rounded-lg overflow-hidden">
-                <img src={myImageSrc || "/placeholder.svg"} alt="My Character" className="w-full h-full object-contain" />
+                <img
+                  src={myImageSrc || '/placeholder.svg'}
+                  alt="My Character"
+                  className="w-full h-full object-contain"
+                />
               </div>
               <div className="mt-4 text-center text-sm">
                 <div className="text-muted-foreground">전적</div>
                 <div className="font-semibold">
-                  {battleState === "finished" && finalPlayer
+                  {battleState === 'finished' && finalPlayer
                     ? `${finalPlayer.wins}승 ${finalPlayer.losses}패 ${finalPlayer.draws}무`
                     : `${myCharacter.wins}승 ${myCharacter.losses}패 ${myCharacter.draws}무`}
                 </div>
@@ -400,7 +440,7 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
 
           {/* Battle Status */}
           <div className="flex flex-col items-center justify-center gap-4">
-            {battleState === "battling" && (
+            {battleState === 'battling' && (
               <>
                 <div className="relative">
                   <Swords className="h-16 w-16 text-primary animate-pulse" />
@@ -411,30 +451,30 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
                 <p className="text-sm text-muted-foreground animate-pulse">배틀 진행 중...</p>
               </>
             )}
-            {battleState === "finished" && result && (
+            {battleState === 'finished' && result && (
               <div className="text-center space-y-4">
                 <div
                   className={cn(
-                    "text-6xl font-bold",
-                    result === "win" && "text-green-600",
-                    result === "loss" && "text-red-600",
-                    result === "draw" && "text-yellow-600",
+                    'text-6xl font-bold',
+                    result === 'win' && 'text-green-600',
+                    result === 'loss' && 'text-red-600',
+                    result === 'draw' && 'text-yellow-600',
                   )}
                 >
-                  {result === "win" && "승리!"}
-                  {result === "loss" && "패배"}
-                  {result === "draw" && "무승부"}
+                  {result === 'win' && '승리!'}
+                  {result === 'loss' && '패배'}
+                  {result === 'draw' && '무승부'}
                 </div>
                 <div
                   className={cn(
-                    "text-2xl font-semibold",
-                    pointsChange > 0 && "text-green-600",
-                    pointsChange < 0 && "text-red-600",
+                    'text-2xl font-semibold',
+                    pointsChange > 0 && 'text-green-600',
+                    pointsChange < 0 && 'text-red-600',
                   )}
                 >
                   {pointsChange > 0 && `+${pointsChange}`}
                   {pointsChange < 0 && pointsChange}
-                  {pointsChange === 0 && "±0"} 포인트
+                  {pointsChange === 0 && '±0'} 포인트
                 </div>
                 <Card className="bg-muted">
                   <CardContent className="pt-6">
@@ -450,14 +490,21 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
 
           {/* Opponent Character - Show image only (hide rank, record, nickname) */}
           <Card
-            className={cn("transition-all", battleState === "finished" && result === "loss" && "ring-2 ring-red-500")}
+            className={cn(
+              'transition-all',
+              battleState === 'finished' && result === 'loss' && 'ring-2 ring-red-500',
+            )}
           >
             <CardHeader>
               <CardTitle className="text-center">상대: {opponent.name}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="aspect-square relative bg-muted rounded-lg overflow-hidden">
-                <img src={opponentImageSrc || "/placeholder.svg"} alt="Opponent Character" className="w-full h-full object-contain" />
+                <img
+                  src={opponentImageSrc || '/placeholder.svg'}
+                  alt="Opponent Character"
+                  className="w-full h-full object-contain"
+                />
               </div>
             </CardContent>
           </Card>

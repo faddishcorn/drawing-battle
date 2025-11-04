@@ -60,7 +60,9 @@ export function DrawingCanvas({ onSave, isDisabled = false }: DrawingCanvasProps
     if (!canvas) return
 
     // Capture pointer to continue drawing when leaving the element
-    try { (e.currentTarget as HTMLCanvasElement).setPointerCapture?.(e.pointerId) } catch {}
+    try {
+      ;(e.currentTarget as HTMLCanvasElement).setPointerCapture?.(e.pointerId)
+    } catch {}
 
     const { x, y } = getPos(e)
 
@@ -125,8 +127,7 @@ export function DrawingCanvas({ onSave, isDisabled = false }: DrawingCanvasProps
           size="sm"
           onClick={() => setIsEraser(false)}
         >
-          <Pencil className="h-4 w-4 mr-2" />
-          펜
+          <Pencil className="h-4 w-4 mr-2" />펜
         </Button>
         <Button
           variant={isEraser ? 'default' : 'outline'}
@@ -150,7 +151,7 @@ export function DrawingCanvas({ onSave, isDisabled = false }: DrawingCanvasProps
               'w-8 h-8 rounded-full border-2 transition-transform hover:scale-110',
               currentColor === color.value && !isEraser
                 ? 'border-foreground scale-110'
-                : 'border-border'
+                : 'border-border',
             )}
             style={{ backgroundColor: color.value }}
             onClick={() => {
@@ -191,7 +192,7 @@ export function DrawingCanvas({ onSave, isDisabled = false }: DrawingCanvasProps
       <div className="flex justify-center">
         <Button onClick={handleSave} size="lg" className="gap-2" disabled={isDisabled}>
           <Save className="h-5 w-5" />
-          {isDisabled ? "저장 중..." : "캐릭터 저장"}
+          {isDisabled ? '저장 중...' : '캐릭터 저장'}
         </Button>
       </div>
     </div>

@@ -1,15 +1,15 @@
-"use client"
+'use client'
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { useAuth } from "@/lib/auth-context"
-import { CharacterCard } from "@/components/character-card"
-import { Button } from "@/components/ui/button"
-import { Plus } from "lucide-react"
-import { Spinner } from "@/components/ui/spinner"
-import Link from "next/link"
-import { db } from "@/lib/firebase"
-import { collection, query, where, getDocs } from "firebase/firestore"
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/auth-context'
+import { CharacterCard } from '@/components/character-card'
+import { Button } from '@/components/ui/button'
+import { Plus } from 'lucide-react'
+import { Spinner } from '@/components/ui/spinner'
+import Link from 'next/link'
+import { db } from '@/lib/firebase'
+import { collection, query, where, getDocs } from 'firebase/firestore'
 
 interface Character {
   id: string
@@ -32,7 +32,7 @@ export default function GalleryPage() {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push("/login")
+      router.push('/login')
     }
   }, [user, authLoading, router])
 
@@ -41,12 +41,12 @@ export default function GalleryPage() {
       if (!user) return
 
       try {
-        const q = query(collection(db, "characters"), where("userId", "==", user.id))
+        const q = query(collection(db, 'characters'), where('userId', '==', user.id))
         const snap = await getDocs(q)
         const list = snap.docs.map((d) => d.data() as Character)
         setCharacters(list)
       } catch (error) {
-        console.error("Error fetching characters:", error)
+        console.error('Error fetching characters:', error)
         setCharacters([])
       } finally {
         setIsLoading(false)
@@ -105,9 +105,13 @@ export default function GalleryPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {characters.map((character) => (
-                <CharacterCard key={character.id} character={character} onDelete={() => {
-                  setCharacters(characters.filter(c => c.id !== character.id))
-                }} />
+                <CharacterCard
+                  key={character.id}
+                  character={character}
+                  onDelete={() => {
+                    setCharacters(characters.filter((c) => c.id !== character.id))
+                  }}
+                />
               ))}
             </div>
           )}

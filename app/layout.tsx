@@ -1,37 +1,37 @@
-import type React from "react"
-import { Suspense } from "react"
-import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
-import { Analytics } from "@vercel/analytics/next"
-import Script from "next/script"
-import { Navigation } from "@/components/navigation"
-import { AuthProvider } from "@/lib/auth-context"
-import { Toaster } from "@/components/ui/toaster"
-import { GAListener } from "@/components/ga-listener"
-import "./globals.css"
+import type React from 'react'
+import { Suspense } from 'react'
+import type { Metadata } from 'next'
+import { Geist, Geist_Mono } from 'next/font/google'
+import { Analytics } from '@vercel/analytics/next'
+import Script from 'next/script'
+import { Navigation } from '@/components/navigation'
+import { AuthProvider } from '@/lib/auth-context'
+import { Toaster } from '@/components/ui/toaster'
+import { GAListener } from '@/components/ga-listener'
+import './globals.css'
 
-const _geist = Geist({ subsets: ["latin"] })
-const _geistMono = Geist_Mono({ subsets: ["latin"] })
+const _geist = Geist({ subsets: ['latin'] })
+const _geistMono = Geist_Mono({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: "배틀 드로잉 - 캐릭터 배틀 게임",
-  description: "직접 그린 캐릭터로 실시간 배틀을 즐겨보세요.",
-  generator: "v0.app",
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://example.com"),
+  title: '배틀 드로잉 - 캐릭터 배틀 게임',
+  description: '직접 그린 캐릭터로 실시간 배틀을 즐겨보세요.',
+  generator: 'v0.app',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://example.com'),
   openGraph: {
-    title: "배틀 드로잉 - 캐릭터 배틀 게임",
-    description: "직접 그린 캐릭터로 실시간 배틀을 즐겨보세요.",
-    type: "website",
-    siteName: "배틀 드로잉",
-    locale: "ko_KR",
+    title: '배틀 드로잉 - 캐릭터 배틀 게임',
+    description: '직접 그린 캐릭터로 실시간 배틀을 즐겨보세요.',
+    type: 'website',
+    siteName: '배틀 드로잉',
+    locale: 'ko_KR',
   },
   twitter: {
-    card: "summary_large_image",
-    title: "배틀 드로잉 - 캐릭터 배틀 게임",
-    description: "직접 그린 캐릭터로 실시간 배틀을 즐겨보세요.",
+    card: 'summary_large_image',
+    title: '배틀 드로잉 - 캐릭터 배틀 게임',
+    description: '직접 그린 캐릭터로 실시간 배틀을 즐겨보세요.',
   },
   alternates: {
-    canonical: "/",
+    canonical: '/',
   },
   verification: {
     google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || undefined,
@@ -45,8 +45,8 @@ export default function RootLayout({
 }>) {
   const GA_ID = process.env.NEXT_PUBLIC_GA_ID
   return (
-  <html lang="ko">
-      <body className={`font-sans antialiased`}>
+    <html lang="ko">
+      <body className="font-sans antialiased">
         {GA_ID ? (
           <>
             <Script

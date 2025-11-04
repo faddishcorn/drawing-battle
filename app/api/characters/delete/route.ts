@@ -1,27 +1,27 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { db, storage } from "@/lib/firebase"
-import { doc, getDoc, deleteDoc, updateDoc } from "firebase/firestore"
-import { ref, deleteObject } from "firebase/storage"
+import { type NextRequest, NextResponse } from 'next/server'
+import { db, storage } from '@/lib/firebase'
+import { doc, getDoc, deleteDoc, updateDoc } from 'firebase/firestore'
+import { ref, deleteObject } from 'firebase/storage'
 
 export async function DELETE(request: NextRequest) {
   try {
     const { characterId, userId } = await request.json()
 
     if (!characterId || !userId) {
-      return NextResponse.json({ error: "Missing characterId or userId" }, { status: 400 })
+      return NextResponse.json({ error: 'Missing characterId or userId' }, { status: 400 })
     }
 
     // Get character document
-    const characterDocRef = doc(db, "characters", characterId)
+    const characterDocRef = doc(db, 'characters', characterId)
     const characterDocSnap = await getDoc(characterDocRef)
 
     if (!characterDocSnap.exists()) {
-      return NextResponse.json({ error: "Character not found" }, { status: 404 })
+      return NextResponse.json({ error: 'Character not found' }, { status: 404 })
     }
 
     // Verify ownership
     if (characterDocSnap.data().userId !== userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
     // Delete from Storage
@@ -30,7 +30,7 @@ export async function DELETE(request: NextRequest) {
       const storageRef = ref(storage, filePath)
       await deleteObject(storageRef)
     } catch (storageError) {
-      console.warn("Storage deletion warning:", storageError)
+      console.warn('Storage deletion warning:', storageError)
       // Continue even if storage deletion fails
     }
 
@@ -38,7 +38,7 @@ export async function DELETE(request: NextRequest) {
     await deleteDoc(characterDocRef)
 
     // Update user's character count
-    const userDocRef = doc(db, "users", userId)
+    const userDocRef = doc(db, 'users', userId)
     const userDocSnap = await getDoc(userDocRef)
 
     if (userDocSnap.exists()) {
@@ -50,10 +50,10 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "Character deleted successfully",
+      message: 'Character deleted successfully',
     })
   } catch (error) {
-    console.error("Character deletion error:", error)
-    return NextResponse.json({ error: "Failed to delete character" }, { status: 500 })
+    console.error('Character deletion error:', error)
+    return NextResponse.json({ error: 'Failed to delete character' }, { status: 500 })
   }
 }

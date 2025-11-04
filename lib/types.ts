@@ -1,7 +1,7 @@
-import type { Timestamp } from "firebase/firestore"
+import type { Timestamp } from 'firebase/firestore'
 
-export type BattleState = "ready" | "matching" | "battling" | "finished"
-export type BattleResult = "win" | "loss" | "draw"
+export type BattleState = 'ready' | 'matching' | 'battling' | 'finished'
+export type BattleResult = 'win' | 'loss' | 'draw'
 
 export interface Character {
   id: string

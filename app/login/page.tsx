@@ -1,17 +1,17 @@
-"use client"
+'use client'
 
-import type React from "react"
+import type React from 'react'
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { useAuth } from "@/lib/auth-context"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Swords } from "lucide-react"
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/auth-context'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Swords } from 'lucide-react'
 
 export default function LoginPage() {
-  const [error, setError] = useState("")
+  const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const { user, login, loginAnonymously, isLoading: isAuthLoading } = useAuth()
   const router = useRouter()
@@ -19,44 +19,44 @@ export default function LoginPage() {
   // Auto-redirect if user is already logged in
   useEffect(() => {
     if (user && !isAuthLoading) {
-      router.push("/gallery")
+      router.push('/gallery')
     }
   }, [user, isAuthLoading, router])
 
   const handleGoogleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
+    setError('')
     setIsLoading(true)
 
     try {
       const success = await login()
 
       if (!success) {
-        setError("Google 로그인에 실패했습니다. 다시 시도해주세요.")
+        setError('Google 로그인에 실패했습니다. 다시 시도해주세요.')
         setIsLoading(false)
       }
       // Don't push here; let the useEffect above handle the redirect
     } catch (err) {
-      setError("로그인 중 오류가 발생했습니다.")
+      setError('로그인 중 오류가 발생했습니다.')
       setIsLoading(false)
     }
   }
 
   const handleAnonymousLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
+    setError('')
     setIsLoading(true)
 
     try {
       const success = await loginAnonymously()
 
       if (!success) {
-        setError("익명 로그인에 실패했습니다. 다시 시도해주세요.")
+        setError('익명 로그인에 실패했습니다. 다시 시도해주세요.')
         setIsLoading(false)
       }
       // Don't push here; let the useEffect above handle the redirect
     } catch (err) {
-      setError("로그인 중 오류가 발생했습니다.")
+      setError('로그인 중 오류가 발생했습니다.')
       setIsLoading(false)
     }
   }
@@ -71,9 +71,7 @@ export default function LoginPage() {
             </div>
           </div>
           <CardTitle className="text-2xl">배틀 드로잉</CardTitle>
-          <CardDescription>
-            로그인하여 캐릭터를 그리고 배틀을 시작하세요
-          </CardDescription>
+          <CardDescription>로그인하여 캐릭터를 그리고 배틀을 시작하세요</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleGoogleLogin} className="space-y-4">
@@ -107,7 +105,7 @@ export default function LoginPage() {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                 />
               </svg>
-              {isLoading ? "로그인 중..." : "Google로 로그인"}
+              {isLoading ? '로그인 중...' : 'Google로 로그인'}
             </Button>
 
             <div className="mt-4 p-3 bg-muted rounded-lg text-sm">
@@ -126,7 +124,7 @@ export default function LoginPage() {
                 disabled={isLoading}
                 size="lg"
               >
-                {isLoading ? "로그인 중..." : "익명으로 시작"}
+                {isLoading ? '로그인 중...' : '익명으로 시작'}
               </Button>
               <p className="mt-3 text-center text-xs text-muted-foreground">
                 로그인 없이 바로 게임을 즐길 수 있습니다

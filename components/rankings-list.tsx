@@ -1,10 +1,10 @@
-"use client"
+'use client'
 
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Trophy, Medal, Award } from "lucide-react"
-import { useAuth } from "@/lib/auth-context"
-import { cn } from "@/lib/utils"
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Trophy, Medal, Award } from 'lucide-react'
+import { useAuth } from '@/lib/auth-context'
+import { cn } from '@/lib/utils'
 
 interface CharacterProps {
   id: string
@@ -44,17 +44,17 @@ export function RankingsList({ characters, showTopBadges = false, offset = 0 }: 
   }
 
   const getRankColor = (index: number) => {
-    if (!showTopBadges) return ""
+    if (!showTopBadges) return ''
 
     switch (index) {
       case 0:
-        return "bg-yellow-500/10 border-yellow-500/20"
+        return 'bg-yellow-500/10 border-yellow-500/20'
       case 1:
-        return "bg-gray-400/10 border-gray-400/20"
+        return 'bg-gray-400/10 border-gray-400/20'
       case 2:
-        return "bg-amber-600/10 border-amber-600/20"
+        return 'bg-amber-600/10 border-amber-600/20'
       default:
-        return ""
+        return ''
     }
   }
 
@@ -62,23 +62,27 @@ export function RankingsList({ characters, showTopBadges = false, offset = 0 }: 
     <div className="space-y-3">
       {characters.map((character, index) => {
         const isMyCharacter = character.userId === user?.id
-        const winRate = character.totalBattles > 0 ? character.winRate.toFixed(1) : "0.0"
+        const winRate = character.totalBattles > 0 ? character.winRate.toFixed(1) : '0.0'
         const displayIndex = index + offset
 
         return (
           <Card
             key={character.id}
             className={cn(
-              "transition-all hover:shadow-md",
+              'transition-all hover:shadow-md',
               getRankColor(displayIndex),
-              isMyCharacter && "ring-2 ring-primary",
+              isMyCharacter && 'ring-2 ring-primary',
             )}
           >
             <CardContent className="p-4">
               <div className="flex items-center gap-4">
                 {/* Rank Number */}
                 <div className="flex items-center justify-center w-12 h-12 rounded-full bg-muted font-bold text-lg">
-                  {showTopBadges && displayIndex < 3 ? getRankIcon(displayIndex) : <span>#{displayIndex + 1}</span>}
+                  {showTopBadges && displayIndex < 3 ? (
+                    getRankIcon(displayIndex)
+                  ) : (
+                    <span>#{displayIndex + 1}</span>
+                  )}
                 </div>
 
                 {/* Character Info */}

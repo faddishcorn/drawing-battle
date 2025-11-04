@@ -1,17 +1,17 @@
-"use client"
+'use client'
 
-import { useEffect, useState } from "react"
-import { useToast } from "@/hooks/use-toast"
-import { useAuth } from "@/lib/auth-context"
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Swords, Trophy, Trash2 } from "lucide-react"
-import Image from "next/image"
-import Link from "next/link"
-import { db, storage } from "@/lib/firebase"
-import { doc, deleteDoc, getDoc, updateDoc } from "firebase/firestore"
-import { ref, deleteObject, getDownloadURL } from "firebase/storage"
+import { useEffect, useState } from 'react'
+import { useToast } from '@/hooks/use-toast'
+import { useAuth } from '@/lib/auth-context'
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Swords, Trophy, Trash2 } from 'lucide-react'
+import Image from 'next/image'
+import Link from 'next/link'
+import { db, storage } from '@/lib/firebase'
+import { doc, deleteDoc, getDoc, updateDoc } from 'firebase/firestore'
+import { ref, deleteObject, getDownloadURL } from 'firebase/storage'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,7 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+} from '@/components/ui/alert-dialog'
 
 interface CharacterProps {
   id: string
@@ -48,14 +48,14 @@ export function CharacterCard({ character, onDelete }: CharacterCardProps) {
   const { user } = useAuth()
   const { toast } = useToast()
 
-  const winRate = character.totalBattles > 0 ? character.winRate.toFixed(1) : "0.0"
+  const winRate = character.totalBattles > 0 ? character.winRate.toFixed(1) : '0.0'
 
   const handleDelete = async () => {
     if (!user) {
       toast({
-        title: "Error",
-        description: "Not authenticated",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Not authenticated',
+        variant: 'destructive',
       })
       return
     }
@@ -68,10 +68,10 @@ export function CharacterCard({ character, onDelete }: CharacterCardProps) {
       await deleteObject(storageRef)
 
       // Delete character doc
-      await deleteDoc(doc(db, "characters", character.id))
+      await deleteDoc(doc(db, 'characters', character.id))
 
       // Decrement user character count if user doc exists
-      const userDocRef = doc(db, "users", user.id)
+      const userDocRef = doc(db, 'users', user.id)
       const userSnap = await getDoc(userDocRef)
       if (userSnap.exists()) {
         const count = userSnap.data()?.characterCount || 0
@@ -79,16 +79,16 @@ export function CharacterCard({ character, onDelete }: CharacterCardProps) {
       }
 
       toast({
-        title: "Success",
-        description: "Character deleted successfully",
+        title: 'Success',
+        description: 'Character deleted successfully',
       })
 
       onDelete?.(character.id)
     } catch (error) {
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to delete character",
-        variant: "destructive",
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to delete character',
+        variant: 'destructive',
       })
     } finally {
       setIsDeleting(false)
@@ -100,18 +100,18 @@ export function CharacterCard({ character, onDelete }: CharacterCardProps) {
     let mounted = true
     const loadUrl = async () => {
       try {
-        if (character.imageUrl.startsWith("data:")) {
+        if (character.imageUrl.startsWith('data:')) {
           setImageSrc(character.imageUrl)
           return
         }
-        if (character.imageUrl.startsWith("http://") || character.imageUrl.startsWith("https://")) {
+        if (character.imageUrl.startsWith('http://') || character.imageUrl.startsWith('https://')) {
           if (mounted) setImageSrc(character.imageUrl)
           return
         }
         const url = await getDownloadURL(ref(storage, character.imageUrl))
         if (mounted) setImageSrc(url)
       } catch (e) {
-        console.warn("Failed to resolve image URL", e)
+        console.warn('Failed to resolve image URL', e)
       }
     }
     loadUrl()
@@ -133,7 +133,11 @@ export function CharacterCard({ character, onDelete }: CharacterCardProps) {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="aspect-square relative bg-muted rounded-lg overflow-hidden">
-          <img src={imageSrc || "/placeholder.svg"} alt="Character" className="w-full h-full object-contain" />
+          <img
+            src={imageSrc || '/placeholder.svg'}
+            alt="Character"
+            className="w-full h-full object-contain"
+          />
         </div>
         <div className="grid grid-cols-3 gap-2 text-center text-sm">
           <div>

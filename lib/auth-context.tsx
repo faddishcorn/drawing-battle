@@ -1,6 +1,6 @@
-"use client"
+'use client'
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
 import {
   signInWithPopup,
   linkWithPopup,
@@ -10,9 +10,9 @@ import {
   GoogleAuthProvider,
   signInAnonymously,
   browserPopupRedirectResolver,
-} from "firebase/auth"
-import { auth, db } from "@/lib/firebase"
-import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore"
+} from 'firebase/auth'
+import { auth, db } from '@/lib/firebase'
+import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore'
 
 interface User {
   id: string
@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
         // User logged in (Google or Anonymous)
-        const userDocRef = doc(db, "users", firebaseUser.uid)
+        const userDocRef = doc(db, 'users', firebaseUser.uid)
         const userDocSnap = await getDoc(userDocRef)
 
         if (!userDocSnap.exists()) {
@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const userData = {
             id: firebaseUser.uid,
             email: firebaseUser.email || `anonymous_${firebaseUser.uid}`,
-            name: firebaseUser.displayName || "Anonymous User",
+            name: firebaseUser.displayName || 'Anonymous User',
             isAnonymous: firebaseUser.isAnonymous,
             characterCount: 0,
             createdAt: serverTimestamp(),
@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Set React state
         setUser({
           id: firebaseUser.uid,
-          email: firebaseUser.email || "Anonymous User",
+          email: firebaseUser.email || 'Anonymous User',
           name: firebaseUser.displayName || undefined,
           isAnonymous: firebaseUser.isAnonymous,
         })
@@ -85,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // onAuthStateChanged will handle the rest
       return true
     } catch (error) {
-      console.error("Login error:", error)
+      console.error('Login error:', error)
       return false
     }
   }
@@ -96,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // onAuthStateChanged will handle the rest
       return true
     } catch (error) {
-      console.error("Anonymous login error:", error)
+      console.error('Anonymous login error:', error)
       return false
     }
   }
@@ -106,7 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await signOut(auth)
       setUser(null)
     } catch (error) {
-      console.error("Logout error:", error)
+      console.error('Logout error:', error)
     }
   }
 
@@ -120,8 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext)
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider")
+    throw new Error('useAuth must be used within an AuthProvider')
   }
   return context
 }
-

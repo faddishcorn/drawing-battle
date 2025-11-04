@@ -1,8 +1,8 @@
-"use client"
+'use client'
 
-import { useEffect } from "react"
-import { usePathname, useSearchParams } from "next/navigation"
-import { pageview } from "@/lib/ga"
+import { useEffect } from 'react'
+import { usePathname, useSearchParams } from 'next/navigation'
+import { pageview } from '@/lib/ga'
 
 export function GAListener() {
   const pathname = usePathname()
@@ -10,7 +10,7 @@ export function GAListener() {
 
   useEffect(() => {
     const query = searchParams?.toString()
-    const url = pathname + (query ? `?${query}` : "")
+    const url = pathname + (query ? `?${query}` : '')
     pageview(url)
   }, [pathname, searchParams])
 

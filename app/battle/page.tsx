@@ -1,15 +1,15 @@
-"use client"
+'use client'
 
-import { useState, useEffect, Suspense } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
-import { useAuth } from "@/lib/auth-context"
-import { BattleArena } from "@/components/battle-arena"
-import { Button } from "@/components/ui/button"
-import { ArrowLeft } from "lucide-react"
-import { Spinner } from "@/components/ui/spinner"
-import Link from "next/link"
-import { db } from "@/lib/firebase"
-import { doc, getDoc } from "firebase/firestore"
+import { useState, useEffect, Suspense } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/auth-context'
+import { BattleArena } from '@/components/battle-arena'
+import { Button } from '@/components/ui/button'
+import { ArrowLeft } from 'lucide-react'
+import { Spinner } from '@/components/ui/spinner'
+import Link from 'next/link'
+import { db } from '@/lib/firebase'
+import { doc, getDoc } from 'firebase/firestore'
 
 interface Character {
   id: string
@@ -28,15 +28,14 @@ function BattleContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const { user, isLoading: authLoading } = useAuth()
-  const characterId = searchParams.get("characterId")
+  const characterId = searchParams.get('characterId')
 
   const [myCharacter, setMyCharacter] = useState<Character | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push("/login")
-      return
+      router.push('/login')
     }
   }, [user, authLoading, router])
 
@@ -48,22 +47,22 @@ function BattleContent() {
       }
 
       try {
-        const ref = doc(db, "characters", characterId)
+        const ref = doc(db, 'characters', characterId)
         const snap = await getDoc(ref)
         if (!snap.exists()) {
-          router.push("/gallery")
+          router.push('/gallery')
           return
         }
         const data = snap.data() as Character
         // ownership check
         if (data.userId !== user.id) {
-          router.push("/gallery")
+          router.push('/gallery')
           return
         }
         setMyCharacter(data)
       } catch (error) {
-        console.error("Error fetching character:", error)
-        router.push("/gallery")
+        console.error('Error fetching character:', error)
+        router.push('/gallery')
       } finally {
         setIsLoading(false)
       }

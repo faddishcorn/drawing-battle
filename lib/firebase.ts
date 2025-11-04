@@ -21,7 +21,7 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig)
 export const auth = ((): Auth => {
   if (typeof window !== 'undefined') {
     // Dynamic import to avoid bundling auth on the server
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+
     const { getAuth } = require('firebase/auth') as typeof import('firebase/auth')
     return getAuth(app)
   }

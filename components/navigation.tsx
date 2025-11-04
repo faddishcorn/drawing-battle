@@ -1,11 +1,11 @@
-"use client"
+'use client'
 
-import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import { ImageIcon, Trophy, Swords, LogOut, User } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { useAuth } from "@/lib/auth-context"
-import { Button } from "@/components/ui/button"
+import Link from 'next/link'
+import { usePathname, useRouter } from 'next/navigation'
+import { ImageIcon, Trophy, Swords, LogOut, User } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { useAuth } from '@/lib/auth-context'
+import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,11 +13,11 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from '@/components/ui/dropdown-menu'
 
 const navItems = [
-  { href: "/gallery", label: "내 캐릭터", icon: ImageIcon },
-  { href: "/rankings", label: "랭킹", icon: Trophy },
+  { href: '/gallery', label: '내 캐릭터', icon: ImageIcon },
+  { href: '/rankings', label: '랭킹', icon: Trophy },
 ]
 
 export function Navigation() {
@@ -25,13 +25,13 @@ export function Navigation() {
   const router = useRouter()
   const { user, logout } = useAuth()
 
-  if (pathname === "/login") {
+  if (pathname === '/login') {
     return null
   }
 
   const handleLogout = () => {
     logout()
-    router.push("/login")
+    router.push('/login')
   }
 
   return (
@@ -52,10 +52,10 @@ export function Navigation() {
                     key={item.href}
                     href={item.href}
                     className={cn(
-                      "flex items-center gap-2 px-4 py-2 rounded-lg transition-colors",
+                      'flex items-center gap-2 px-4 py-2 rounded-lg transition-colors',
                       isActive
-                        ? "bg-primary text-primary-foreground"
-                        : "hover:bg-muted text-muted-foreground hover:text-foreground",
+                        ? 'bg-primary text-primary-foreground'
+                        : 'hover:bg-muted text-muted-foreground hover:text-foreground',
                     )}
                   >
                     <Icon className="h-4 w-4" />
