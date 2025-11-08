@@ -6,9 +6,10 @@ import { useAuth } from '@/lib/auth-context'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Swords, Trophy, Trash2 } from 'lucide-react'
+import { Swords, Trophy, Trash2, Flag } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { ReportDialog } from '@/components/report-dialog'
 import { db, storage } from '@/lib/firebase'
 import { doc, deleteDoc, getDoc, updateDoc } from 'firebase/firestore'
 import { ref, deleteObject, getDownloadURL } from 'firebase/storage'
@@ -40,9 +41,10 @@ interface CharacterProps {
 interface CharacterCardProps {
   character: CharacterProps
   onDelete?: (id: string) => void
+  enableReport?: boolean // show report button when viewing others' characters (gallery of others, rankings, etc.)
 }
 
-export function CharacterCard({ character, onDelete }: CharacterCardProps) {
+export function CharacterCard({ character, onDelete, enableReport }: CharacterCardProps) {
   const [isDeleting, setIsDeleting] = useState(false)
   const [imageSrc, setImageSrc] = useState<string>(character.imageUrl)
   const { user } = useAuth()
@@ -165,6 +167,17 @@ export function CharacterCard({ character, onDelete }: CharacterCardProps) {
             배틀 시작
           </Button>
         </Link>
+        {enableReport && (
+          <ReportDialog
+            targetType="character"
+            targetId={character.id}
+            trigger={
+              <Button variant="outline" size="icon" title="신고">
+                <Flag className="h-4 w-4" />
+              </Button>
+            }
+          />
+        )}
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button variant="destructive" size="icon" disabled={isDeleting}>

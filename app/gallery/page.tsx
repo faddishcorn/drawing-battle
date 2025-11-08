@@ -111,6 +111,7 @@ export default function GalleryPage() {
                   onDelete={() => {
                     setCharacters(characters.filter((c) => c.id !== character.id))
                   }}
+                  enableReport={false}
                 />
               ))}
             </div>

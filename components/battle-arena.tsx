@@ -5,7 +5,7 @@ import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Swords, Trophy, Zap } from 'lucide-react'
+import { Swords, Trophy, Zap, Flag } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { db, storage } from '@/lib/firebase'
@@ -25,6 +25,7 @@ import {
 } from 'firebase/firestore'
 import type { Character, BattleState, BattleResult } from '@/lib/types'
 import { requestBattle } from '@/lib/api/battle'
+import { ReportDialog } from '@/components/report-dialog'
 import { getDownloadURL, ref } from 'firebase/storage'
 
 // Download URL cache (memory + localStorage) and image preloader
@@ -636,6 +637,17 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
                   loading="eager"
                   decoding="async"
                   fetchPriority="high"
+                />
+              </div>
+              <div className="mt-4 flex justify-center">
+                <ReportDialog
+                  targetType="character"
+                  targetId={opponent.id}
+                  trigger={
+                    <Button variant="outline" size="sm" className="gap-1">
+                      <Flag className="h-3 w-3" /> 신고
+                    </Button>
+                  }
                 />
               </div>
             </CardContent>
