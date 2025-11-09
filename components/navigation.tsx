@@ -40,7 +40,7 @@ export function Navigation() {
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-2">
             <Swords className="h-6 w-6 text-primary" />
-            <h1 className="text-xl font-bold">배틀 드로잉</h1>
+            <h1 className="text-base sm:text-xl font-bold">배틀 드로잉</h1>
           </div>
           <div className="flex items-center gap-4">
             <div className="flex gap-1">
@@ -68,9 +68,8 @@ export function Navigation() {
             {user && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2 bg-transparent">
+                  <Button variant="outline" size="sm" className="bg-transparent">
                     <User className="h-4 w-4" />
-                    {user.name}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
