@@ -7,6 +7,8 @@ export interface SubmitReportInput {
   targetId: string
   reason: string
   details?: string
+  reporterId?: string
+  reporterIsAnonymous?: boolean
 }
 
 export async function submitReport(input: SubmitReportInput) {

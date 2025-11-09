@@ -1,6 +1,7 @@
 "use client"
 import { useState } from 'react'
 import { submitReport } from '@/lib/api/report'
+import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -34,6 +35,7 @@ const PRESET_REASONS = [
 
 export function ReportDialog({ targetType, targetId, trigger }: ReportDialogProps) {
   const { toast } = useToast()
+  const { user } = useAuth()
   const [reason, setReason] = useState<string>('')
   const [details, setDetails] = useState<string>('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -46,7 +48,14 @@ export function ReportDialog({ targetType, targetId, trigger }: ReportDialogProp
     setIsSubmitting(true)
     setError(null)
     try {
-      const res = (await submitReport({ targetType, targetId, reason, details })) as any
+      const res = (await submitReport({
+        targetType,
+        targetId,
+        reason,
+        details,
+        reporterId: user?.id,
+        reporterIsAnonymous: user?.isAnonymous,
+      })) as any
       if (res && typeof res === 'object' && 'error' in res && res.error) {
         throw new Error(String(res.error))
       }

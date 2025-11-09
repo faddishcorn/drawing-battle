@@ -118,6 +118,8 @@ export default function DrawPage() {
         userId: user.id,
         // Prefer public download URL to avoid 404s when rendering
         imageUrl: downloadURL,
+        // Keep original storage path for admin/moderation identification
+        storagePath: filePath,
         // Random key for fair matchmaking (rank-agnostic sampling)
         rand: Math.random(),
         rank: 1000,
