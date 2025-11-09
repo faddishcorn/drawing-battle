@@ -53,7 +53,7 @@ export default function RankingsPage() {
       setIsWeeklyLoading(true)
       try {
         // Fetch directly from Firestore with auth token (bypasses API permission issues)
-        const getWeekKey = (d = new Date()) => {
+        const getWeekKey = (d: Date) => {
           const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
           const dayNum = (date.getUTCDay() + 6) % 7
           date.setUTCDate(date.getUTCDate() - dayNum + 3)
@@ -62,6 +62,7 @@ export default function RankingsPage() {
           const year = date.getUTCFullYear()
           return `${year}-W${String(week).padStart(2, '0')}`
         }
+        // Only get Date on client side inside useEffect
         const weekKey = getWeekKey(new Date())
         
         // Get all characters and filter by weeklyKey in memory (avoids index requirement)
