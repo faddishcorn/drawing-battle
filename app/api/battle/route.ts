@@ -272,7 +272,7 @@ Constraints:
       return { wins, losses, draws, totalBattles, winRate, rank }
     }
 
-    // Attempt to persist on server using firebase-admin if available
+  // Attempt to persist on server using firebase-admin if available
     let persisted = false
     let updatedPlayer: any = null
     let updatedOpponent: any = null
@@ -293,6 +293,19 @@ Constraints:
       const db = admin.firestore()
       const { FieldValue } = admin.firestore
 
+      const getWeekKey = (d = new Date()) => {
+        // ISO week key YYYY-Www
+        const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+        // Thursday in current week decides the year
+        const dayNum = (date.getUTCDay() + 6) % 7
+        date.setUTCDate(date.getUTCDate() - dayNum + 3)
+        const firstThursday = new Date(Date.UTC(date.getUTCFullYear(), 0, 4))
+        const week =
+          1 + Math.round(((date.getTime() - firstThursday.getTime()) / 86400000 - 3) / 7)
+        const year = date.getUTCFullYear()
+        return `${year}-W${String(week).padStart(2, '0')}`
+      }
+
       await db.runTransaction(async (tx: any) => {
         const playerRef = db.collection('characters').doc(String(player.id))
         const opponentRef = db.collection('characters').doc(String(opponent.id))
@@ -305,6 +318,51 @@ Constraints:
         const pStats = computeStats(p, true)
         const oStats = computeStats(o, false)
 
+        // Weekly stats update (lazy reset by week key)
+        const weekKey = getWeekKey(new Date())
+        const resetWeeklyP = p?.weeklyKey !== weekKey
+        const resetWeeklyO = o?.weeklyKey !== weekKey
+
+        const pWeeklyBase = resetWeeklyP
+          ? { weeklyPoints: 0, weeklyWins: 0, weeklyLosses: 0, weeklyDraws: 0, weeklyTotalBattles: 0 }
+          : {
+              weeklyPoints: p?.weeklyPoints || 0,
+              weeklyWins: p?.weeklyWins || 0,
+              weeklyLosses: p?.weeklyLosses || 0,
+              weeklyDraws: p?.weeklyDraws || 0,
+              weeklyTotalBattles: p?.weeklyTotalBattles || 0,
+            }
+        const oWeeklyBase = resetWeeklyO
+          ? { weeklyPoints: 0, weeklyWins: 0, weeklyLosses: 0, weeklyDraws: 0, weeklyTotalBattles: 0 }
+          : {
+              weeklyPoints: o?.weeklyPoints || 0,
+              weeklyWins: o?.weeklyWins || 0,
+              weeklyLosses: o?.weeklyLosses || 0,
+              weeklyDraws: o?.weeklyDraws || 0,
+              weeklyTotalBattles: o?.weeklyTotalBattles || 0,
+            }
+
+        const pWeekly = {
+          weeklyPoints: pWeeklyBase.weeklyPoints + (battleResult === 'win' ? 20 : battleResult === 'loss' ? -15 : 0),
+          weeklyWins: pWeeklyBase.weeklyWins + (battleResult === 'win' ? 1 : 0),
+          weeklyLosses: pWeeklyBase.weeklyLosses + (battleResult === 'loss' ? 1 : 0),
+          weeklyDraws: pWeeklyBase.weeklyDraws + (battleResult === 'draw' ? 1 : 0),
+          weeklyTotalBattles: pWeeklyBase.weeklyTotalBattles + 1,
+          weeklyWinRate: ((pWeeklyBase.weeklyWins + (battleResult === 'win' ? 1 : 0)) /
+            (pWeeklyBase.weeklyTotalBattles + 1)) * 100,
+          weeklyKey: weekKey,
+        }
+        const oWeekly = {
+          weeklyPoints: oWeeklyBase.weeklyPoints + (battleResult === 'loss' ? 20 : battleResult === 'win' ? -15 : 0),
+          weeklyWins: oWeeklyBase.weeklyWins + (battleResult === 'loss' ? 1 : 0),
+          weeklyLosses: oWeeklyBase.weeklyLosses + (battleResult === 'win' ? 1 : 0),
+          weeklyDraws: oWeeklyBase.weeklyDraws + (battleResult === 'draw' ? 1 : 0),
+          weeklyTotalBattles: oWeeklyBase.weeklyTotalBattles + 1,
+          weeklyWinRate: ((oWeeklyBase.weeklyWins + (battleResult === 'loss' ? 1 : 0)) /
+            (oWeeklyBase.weeklyTotalBattles + 1)) * 100,
+          weeklyKey: weekKey,
+        }
+
         updatedPlayer = {
           rank: pStats.rank,
           wins: pStats.wins,
@@ -315,6 +373,7 @@ Constraints:
           updatedAt: FieldValue.serverTimestamp(),
           lastBattleAt: FieldValue.serverTimestamp(),
           lastOpponentId: String(opponent.id),
+          ...pWeekly,
         }
         updatedOpponent = {
           rank: oStats.rank,
@@ -325,6 +384,7 @@ Constraints:
           winRate: oStats.winRate,
           updatedAt: FieldValue.serverTimestamp(),
           lastBattleAt: FieldValue.serverTimestamp(),
+          ...oWeekly,
         }
 
         tx.update(playerRef, updatedPlayer)

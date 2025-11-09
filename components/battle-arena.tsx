@@ -377,6 +377,17 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
       // Use server-computed stats when available to avoid interim inconsistencies
       const apiPlayer = data?.updatedPlayer as Partial<Character> | undefined
       const apiOpponent = data?.updatedOpponent as Partial<Character> | undefined
+      // Helper: ISO week key for weekly stats
+      const getWeekKey = (d = new Date()) => {
+        const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+        const dayNum = (date.getUTCDay() + 6) % 7
+        date.setUTCDate(date.getUTCDate() - dayNum + 3)
+        const firstThursday = new Date(Date.UTC(date.getUTCFullYear(), 0, 4))
+        const week = 1 + Math.round(((date.getTime() - firstThursday.getTime()) / 86400000 - 3) / 7)
+        const year = date.getUTCFullYear()
+        return `${year}-W${String(week).padStart(2, '0')}`
+      }
+
       const newPlayerStats = {
         rank: playerNewRank,
         wins: player.wins + (battleResult === 'win' ? 1 : 0),
@@ -400,14 +411,50 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
         ...(apiOpponent ?? {}),
       } as Partial<Character>
 
-      // If server already persisted both, skip client writes
-      if (!data?.persisted) {
-        await updateDoc(playerRef, { ...newPlayerStats, lastOpponentId: picked.id, rand: Math.random() })
-      } else {
-        // Even if server persisted stats, refresh local 'rand' to keep matchmaking distribution fresh
-        try {
-          await updateDoc(playerRef, { rand: Math.random(), lastOpponentId: picked.id })
-        } catch {}
+      // Always update weekly stats on client for my character (ensures weekly rankings work regardless of server config)
+      const weekKey = getWeekKey(new Date())
+      const resetWeekly = (player as any)?.weeklyKey !== weekKey
+      const weeklyPointsDelta = battleResult === 'win' ? 20 : battleResult === 'loss' ? -15 : 0
+      const base = resetWeekly
+        ? { weeklyPoints: 0, weeklyWins: 0, weeklyLosses: 0, weeklyDraws: 0, weeklyTotalBattles: 0 }
+        : {
+            weeklyPoints: (player as any)?.weeklyPoints || 0,
+            weeklyWins: (player as any)?.weeklyWins || 0,
+            weeklyLosses: (player as any)?.weeklyLosses || 0,
+            weeklyDraws: (player as any)?.weeklyDraws || 0,
+            weeklyTotalBattles: (player as any)?.weeklyTotalBattles || 0,
+          }
+      const nextWeeklyWins = base.weeklyWins + (battleResult === 'win' ? 1 : 0)
+      const nextWeeklyTotal = base.weeklyTotalBattles + 1
+      const weeklyUpdate = {
+        weeklyKey: weekKey,
+        weeklyPoints: base.weeklyPoints + weeklyPointsDelta,
+        weeklyWins: nextWeeklyWins,
+        weeklyLosses: base.weeklyLosses + (battleResult === 'loss' ? 1 : 0),
+        weeklyDraws: base.weeklyDraws + (battleResult === 'draw' ? 1 : 0),
+        weeklyTotalBattles: nextWeeklyTotal,
+        weeklyWinRate: (nextWeeklyWins / nextWeeklyTotal) * 100,
+      }
+
+      console.log('[Weekly] Updating weekly stats:', { weekKey, weeklyUpdate, charId: myCharacter.id })
+
+      // If server already persisted both, skip full stats write but always update weekly + rand
+      try {
+        if (!data?.persisted) {
+          await updateDoc(playerRef, { ...newPlayerStats, ...weeklyUpdate, lastOpponentId: picked.id, rand: Math.random() })
+          console.log('[Weekly] Full update successful')
+        } else {
+          // Server persisted overall stats; just update weekly + rand
+          await updateDoc(playerRef, { ...weeklyUpdate, rand: Math.random(), lastOpponentId: picked.id })
+          console.log('[Weekly] Weekly-only update successful')
+        }
+      } catch (updateErr) {
+        console.error('[Weekly] Failed to update weekly stats:', updateErr)
+        toast({
+          title: '주간 통계 업데이트 실패',
+          description: updateErr instanceof Error ? updateErr.message : '알 수 없는 오류',
+          variant: 'destructive',
+        })
       }
 
       // 4) Save battle record
