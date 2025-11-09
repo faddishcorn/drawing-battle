@@ -110,7 +110,7 @@ export default function LoginPage() {
 
             <div className="mt-4 p-3 bg-muted rounded-lg text-sm">
               <p className="text-muted-foreground">
-                Google 계정이 있으면 바로 로그인할 수 있습니다. 없으면 새 계정을 만들 수 있습니다.
+                익명 로그인 시 브라우저, 계정 변경으로 인해 그림이 날라갈 수 있습니다.
               </p>
             </div>
           </form>

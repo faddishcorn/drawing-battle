@@ -38,12 +38,12 @@ export function Navigation() {
     <nav className="border-b border-border bg-card">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          <div className="flex items-center gap-2">
-            <Swords className="h-6 w-6 text-primary" />
-            <h1 className="text-sm sm:text-xl font-bold">배틀 드로잉</h1>
+          <div className="flex items-center gap-1 sm:gap-2">
+            <Swords className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+            <h1 className="text-base sm:text-xl font-bold">배틀 드로잉</h1>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="flex gap-1">
+          <div className="flex items-center gap-2 sm:gap-4">
+            <div className="flex gap-0.5 sm:gap-1">
               {navItems.map((item) => {
                 const Icon = item.icon
                 const isActive = pathname === item.href
@@ -52,14 +52,14 @@ export function Navigation() {
                     key={item.href}
                     href={item.href}
                     className={cn(
-                      'flex items-center gap-2 px-4 py-2 rounded-lg transition-colors',
+                      'flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 rounded-lg transition-colors',
                       isActive
                         ? 'bg-primary text-primary-foreground'
                         : 'hover:bg-muted text-muted-foreground hover:text-foreground',
                     )}
                   >
                     <Icon className="h-4 w-4" />
-                    <span className="font-medium">{item.label}</span>
+                    <span className="font-medium text-xs sm:text-base">{item.label}</span>
                   </Link>
                 )
               })}
