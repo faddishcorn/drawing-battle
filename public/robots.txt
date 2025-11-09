@@ -1,0 +1,12 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+Allow: /login
+Allow: /gallery
+Allow: /rankings
+
+Disallow: /api/
+Disallow: /draw
+Disallow: /battle
+
+Sitemap: https://drawing-battle.vercel.app/sitemap.xml
