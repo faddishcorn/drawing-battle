@@ -71,7 +71,7 @@ export default function LoginPage() {
             </div>
           </div>
           <CardTitle className="text-2xl">배틀 드로잉</CardTitle>
-          <CardDescription>로그인하여 캐릭터를 그리고 배틀을 시작하세요</CardDescription>
+          <CardDescription>캐릭터를 직접 그리고 배틀을 시작해보세요</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleGoogleLogin} className="space-y-4">
