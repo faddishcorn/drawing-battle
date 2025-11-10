@@ -144,7 +144,7 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
     if (typeof window === 'undefined') return
     try {
       const current = getRecentOpponents()
-      const next = [id, ...current.filter((x) => x !== id)].slice(0, 5) // keep last 5 unique
+      const next = [id, ...current.filter((x) => x !== id)].slice(0, 10) // keep last 10 unique
       window.localStorage.setItem(RECENT_LIST_KEY, JSON.stringify(next))
     } catch {}
   }
@@ -655,7 +655,9 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
                 </div>
                 <Card className="bg-muted">
                   <CardContent className="pt-6">
-                    <p className="text-sm text-center">{reasoning}</p>
+                    <div className="max-h-48 overflow-y-auto">
+                      <p className="text-sm text-left whitespace-pre-wrap break-words">{reasoning}</p>
+                    </div>
                   </CardContent>
                 </Card>
                 <Button onClick={handleContinue} size="lg">
