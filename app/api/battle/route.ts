@@ -60,11 +60,13 @@ Hard rules:
 - Numeric rank/score is irrelevant to the judgment.
 
 Content Policy Enforcement (CRITICAL):
-- If EITHER character's prompt/description contains political figure mockery, discriminatory slurs, or hate speech (especially Korean political figures, "일베" memes, etc.), that character AUTOMATICALLY LOSES.
-- If PLAYER violates policy: result="loss", reasoning="정책 위반으로 인한 자동 패배"
-- If OPPONENT violates policy: result="win", reasoning="상대방 정책 위반으로 인한 승리"
+- ONLY apply policy violations if the character description EXPLICITLY contains political figure mockery, discriminatory slurs, or hate speech targeting specific individuals or groups.
+- Generic themes, objects, or natural phenomena (weather, animals, scientific concepts, etc.) are NOT policy violations unless directly tied to political mockery with explicit name references.
+- Policy violations require BOTH: (1) explicit name/identity AND (2) clear mocking/derogatory intent.
+- If PLAYER violates: result="loss", reasoning="정책 위반으로 인한 자동 패배"
+- If OPPONENT violates: result="win", reasoning="상대방 정책 위반으로 인한 승리"
 - If BOTH violate: result="draw", reasoning="양측 정책 위반으로 무승부"
-- This takes absolute priority over all other judging criteria.
+- This takes absolute priority over all other judging criteria, but ONLY when clear violations are present.
 
 Judging criteria (only if no policy violations):
 - Primary: decide who would likely WIN in a direct clash at a glance — who appears stronger/dominant overall. Consider dynamic pose, motion, threat, weaponry/abilities implied by the drawings.
