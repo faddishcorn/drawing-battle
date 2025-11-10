@@ -371,7 +371,7 @@ Constraints:
           weeklyKey: weekKey,
         }
         const oWeekly = {
-          weeklyPoints: oWeeklyBase.weeklyPoints + (battleResult === 'loss' ? 20 : battleResult === 'win' ? -15 : 0),
+          weeklyPoints: oWeeklyBase.weeklyPoints + (battleResult === 'win' ? -15 : battleResult === 'loss' ? 20 : 0),
           weeklyWins: oWeeklyBase.weeklyWins + (battleResult === 'loss' ? 1 : 0),
           weeklyLosses: oWeeklyBase.weeklyLosses + (battleResult === 'win' ? 1 : 0),
           weeklyDraws: oWeeklyBase.weeklyDraws + (battleResult === 'draw' ? 1 : 0),
