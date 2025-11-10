@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { ImageIcon, Trophy, Swords, LogOut, User } from 'lucide-react'
@@ -24,6 +25,12 @@ export function Navigation() {
   const pathname = usePathname()
   const router = useRouter()
   const { user, logout } = useAuth()
+  const [mounted, setMounted] = useState(false)
+
+  // Prevent hydration mismatch by only rendering user-dependent UI on client
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   if (pathname === '/login') {
     return null
@@ -65,7 +72,7 @@ export function Navigation() {
               })}
             </div>
 
-            {user && (
+            {mounted && user && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="bg-transparent">
