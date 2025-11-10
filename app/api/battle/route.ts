@@ -59,7 +59,14 @@ Hard rules:
 - The FIRST image is the PLAYER, the SECOND is the OPPONENT (keep this ordering in all references).
 - Numeric rank/score is irrelevant to the judgment.
 
-Judging criteria:
+Content Policy Enforcement (CRITICAL):
+- If EITHER character's prompt/description contains political figure mockery, discriminatory slurs, or hate speech (especially Korean political figures, "일베" memes, etc.), that character AUTOMATICALLY LOSES.
+- If PLAYER violates policy: result="loss", reasoning="정책 위반으로 인한 자동 패배"
+- If OPPONENT violates policy: result="win", reasoning="상대방 정책 위반으로 인한 승리"
+- If BOTH violate: result="draw", reasoning="양측 정책 위반으로 무승부"
+- This takes absolute priority over all other judging criteria.
+
+Judging criteria (only if no policy violations):
 - Primary: decide who would likely WIN in a direct clash at a glance — who appears stronger/dominant overall. Consider dynamic pose, motion, threat, weaponry/abilities implied by the drawings.
 - Use clarity, composition, expression, and impact as supporting (secondary) signals.
 - Apply a significant penalty to low-effort work (text-only images, meaningless scribbles, extremely rough/unreadable doodles). Quality/completeness (form, color, layout, consistency) is a secondary factor and should not overrule clear narrative superiority in the clash.
@@ -95,10 +102,19 @@ Constraints:
 
       let resp: Response | null = null
       let lastErr: unknown = null
-      // Build request body with optional images
+      // Build request body with optional images and prompts
       const playerImg = await fetchAsBase64(player?.imageUrl)
       const opponentImg = await fetchAsBase64(opponent?.imageUrl)
-      const parts: any[] = [{ text: prompt }]
+      
+      // Include character prompts for policy checking
+      const playerPrompt = player?.prompt || player?.description || ''
+      const opponentPrompt = opponent?.prompt || opponent?.description || ''
+      
+      const parts: any[] = [
+        { text: prompt },
+        { text: `\n\nPLAYER character description: "${playerPrompt}"` },
+        { text: `OPPONENT character description: "${opponentPrompt}"\n\n` }
+      ]
       if (playerImg) parts.push({ inlineData: { mimeType: playerImg.mime, data: playerImg.data } })
       if (opponentImg)
         parts.push({ inlineData: { mimeType: opponentImg.mime, data: opponentImg.data } })
