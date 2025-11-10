@@ -108,7 +108,7 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
   const [opponentImageSrc, setOpponentImageSrc] = useState<string>('')
   const [cooldownMs, setCooldownMs] = useState<number>(0)
   const [lastOpponentIdDoc, setLastOpponentIdDoc] = useState<string | null>(null)
-  const COOLDOWN_MS = 15_000
+  const COOLDOWN_MS = 30_000
 
   // Prevent immediate rematch: keep the last matched opponent per character in localStorage
   const RECENT_KEY = `recentOpp:${myCharacter.id}`
