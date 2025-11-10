@@ -438,20 +438,21 @@ export function BattleArena({ myCharacter, userId }: BattleArenaProps) {
 
       console.log('[Weekly] Updating weekly stats:', { weekKey, weeklyUpdate, charId: myCharacter.id })
 
-      // If server already persisted both, skip full stats write but always update weekly + rand
+      // If server already persisted, skip update (server already handled everything including weekly stats)
       try {
         if (!data?.persisted) {
+          // Server didn't persist, so client must update everything
           await updateDoc(playerRef, { ...newPlayerStats, ...weeklyUpdate, lastOpponentId: picked.id, rand: Math.random() })
-          console.log('[Weekly] Full update successful')
+          console.log('[Weekly] Full update successful (server did not persist)')
         } else {
-          // Server persisted overall stats; just update weekly + rand
-          await updateDoc(playerRef, { ...weeklyUpdate, rand: Math.random(), lastOpponentId: picked.id })
-          console.log('[Weekly] Weekly-only update successful')
+          // Server persisted everything including weekly stats, just update rand for matchmaking
+          await updateDoc(playerRef, { rand: Math.random() })
+          console.log('[Weekly] Server persisted, only updating rand')
         }
       } catch (updateErr) {
-        console.error('[Weekly] Failed to update weekly stats:', updateErr)
+        console.error('[Weekly] Failed to update stats:', updateErr)
         toast({
-          title: '주간 통계 업데이트 실패',
+          title: '통계 업데이트 실패',
           description: updateErr instanceof Error ? updateErr.message : '알 수 없는 오류',
           variant: 'destructive',
         })

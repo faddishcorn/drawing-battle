@@ -361,7 +361,7 @@ Constraints:
             }
 
         const pWeekly = {
-          weeklyPoints: pWeeklyBase.weeklyPoints + (battleResult === 'win' ? 20 : battleResult === 'loss' ? -15 : 0),
+          weeklyPoints: pWeeklyBase.weeklyPoints + pointsChange,
           weeklyWins: pWeeklyBase.weeklyWins + (battleResult === 'win' ? 1 : 0),
           weeklyLosses: pWeeklyBase.weeklyLosses + (battleResult === 'loss' ? 1 : 0),
           weeklyDraws: pWeeklyBase.weeklyDraws + (battleResult === 'draw' ? 1 : 0),
@@ -371,7 +371,7 @@ Constraints:
           weeklyKey: weekKey,
         }
         const oWeekly = {
-          weeklyPoints: oWeeklyBase.weeklyPoints + (battleResult === 'win' ? -15 : battleResult === 'loss' ? 20 : 0),
+          weeklyPoints: oWeeklyBase.weeklyPoints - pointsChange,
           weeklyWins: oWeeklyBase.weeklyWins + (battleResult === 'loss' ? 1 : 0),
           weeklyLosses: oWeeklyBase.weeklyLosses + (battleResult === 'win' ? 1 : 0),
           weeklyDraws: oWeeklyBase.weeklyDraws + (battleResult === 'draw' ? 1 : 0),
