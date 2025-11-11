@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 
 // Soft in-memory cooldown guard per character ID (best-effort, per server instance)
 const lastBattleAtMap = new Map<string, number>()
-const COOLDOWN_MS = 30_000
+const COOLDOWN_MS = 20_000
 
 export async function POST(request: NextRequest) {
   try {
